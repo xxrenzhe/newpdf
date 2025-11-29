@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Test PDF</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <h1>Test PDF Generator</h1>
+    <button onclick="generatePDF()">Generate Test PDF</button>
+    
+    <script>
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Add title
+            doc.setFontSize(20);
+            doc.text('NewPDF Editor Test Document', 20, 20);
+            
+            // Add subtitle
+            doc.setFontSize(14);
+            doc.text('This is a test PDF for testing editing features', 20, 35);
+            
+            // Add some paragraphs
+            doc.setFontSize(12);
+            doc.text('Testing text editing:', 20, 50);
+            doc.text('Lorem ipsum dolor sit amet, consectetur adipiscing elit.', 20, 60);
+            doc.text('This text can be highlighted, underlined, or have a strikethrough.', 20, 70);
+            
+            doc.text('Testing image insertion:', 20, 90);
+            doc.text('[Space for image insertion test]', 20, 100);
+            
+            doc.text('Testing signature:', 20, 120);
+            doc.text('[Space for signature test]', 20, 130);
+            
+            doc.text('Testing annotations:', 20, 150);
+            doc.text('This area is for testing highlight and annotation tools.', 20, 160);
+            
+            // Save the PDF
+            doc.save('test-document.pdf');
+        }
+    </script>
+</body>
+</html>
