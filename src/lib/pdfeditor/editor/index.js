@@ -592,8 +592,13 @@ export class PDFEditor {
             this.btnFormsSlider.addEventListener('click', toggleForms);
         }
 
-        
+
         PDFEvent.on(Events.ELEMENT_CREATE, e => {
+            // Add null checks for history elements
+            if (!this.elHistoryBtn || !this.elHistoryWrapper) {
+                return;
+            }
+
             this.elHistoryBtn.style.display = 'block';
             const element = e.data.element;
             const page = e.data.page;
