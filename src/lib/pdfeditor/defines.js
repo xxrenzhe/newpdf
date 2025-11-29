@@ -74,17 +74,22 @@ const FONT_LIST = [
 ];
 
 // Make fontList available globally for compatibility
-// Use try-catch to handle both browser and server environments
-try {
-    if (typeof window !== 'undefined') {
-        window.fontList = FONT_LIST;
+// Only set in browser environment, not in SSR
+if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined') {
+    try {
+        globalThis.window.fontList = FONT_LIST;
+    } catch (e) {
+        // Ignore errors in environments where global assignment is not allowed
     }
-    if (typeof globalThis !== 'undefined') {
+}
+
+// Also try to set on globalThis directly
+if (typeof globalThis !== 'undefined') {
+    try {
         globalThis.fontList = FONT_LIST;
+    } catch (e) {
+        // Ignore errors
     }
-} catch (e) {
-    // Ignore errors in environments where global assignment is not allowed
-    console.warn('Could not set global fontList:', e);
 }
 
 export {
