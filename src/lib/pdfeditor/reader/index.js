@@ -502,6 +502,15 @@ export class PDFReader {
         PDFEvent.on(Events.SET_SCALE, e => {
             let scale = e.data;
             let isNewOption = true;
+
+            // Add null check for btnSelectZoom
+            if (!this.btnSelectZoom || !this.btnSelectZoom.options) {
+                if (this.btnZoomRange) {
+                    this.btnZoomRange.value = scale * 100;
+                }
+                return;
+            }
+
             const options = this.btnSelectZoom.options;
             for (let i = 0; i < options.length; i++) {
                 let option = options[i];
@@ -513,19 +522,25 @@ export class PDFReader {
             }
             if (isNewOption) {
                 let option = null;
-                if (options[0].getAttribute('custom')) {
+                if (options[0] && options[0].getAttribute('custom')) {
                     option = options[0];
                 } else {
                     option = document.createElement('option');
                     option.setAttribute('custom', '1');
-                    this.btnSelectZoom.add(option, options[0]);
+                    if (options[0]) {
+                        this.btnSelectZoom.add(option, options[0]);
+                    } else {
+                        this.btnSelectZoom.add(option);
+                    }
                 }
                 option.value = scale;
                 option.text = parseInt(scale * 100) + '%';
                 // this.btnSelectZoom.options[0].setAttribute('selected', 'selected');
                 this.btnSelectZoom.selectedIndex = 0;
             }
-            this.btnZoomRange.value = scale * 100;
+            if (this.btnZoomRange) {
+                this.btnZoomRange.value = scale * 100;
+            }
         });
         //End
 
