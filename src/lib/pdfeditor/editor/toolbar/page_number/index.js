@@ -1,6 +1,7 @@
 import { ToolbarItemBase } from '../ToolbarItemBase';
 import Dialog from '../../../components/dialog';
 import { Locale } from '../../../locale';
+import { Events, PDFEvent } from '../../../event';
 
 
 const HEADER_PREVIEW_BOX_CLASS = 'perview_dom';
@@ -14,8 +15,6 @@ class PageNumber extends ToolbarItemBase {
     init() {
         this.name = 'page_number';
         this.textColor = '#000000';
-        this.headerText = 1;
-        this.footerText = 1;
         this.textSize = 12;
         this.fontFamily = fontList[0].fontFamily;
         this.fontFile = fontList[0].fontFile;
@@ -89,8 +88,8 @@ class PageNumber extends ToolbarItemBase {
             elHeaderPreview.style.display = '';
             elFooterPreview.style.display = '';
 
-            elHeaderPreview.textContent = this.headerText;
-            elFooterPreview.textContent = this.footerText;
+            elHeaderPreview.textContent = '1 / ' + this.reader.pageCount;
+            elFooterPreview.textContent = '1 / ' + this.reader.pageCount;
 
             elHeaderPreview.style.fontSize = this.textSize + 'px';
             elFooterPreview.style.fontSize = this.textSize + 'px';
@@ -113,26 +112,117 @@ class PageNumber extends ToolbarItemBase {
         elPageEnd.setAttribute('max', this.reader.pageCount);
 
         const elBtnOk = elBody.querySelector('.btn_ok');
-        elBtnOk.addEventListener('click', () => {
+        elBtnOk.addEventListener('click', async () => {
             this.dialog.close();
-            let pageStart = elPageStart.value;
-            let pageEnd = elPageEnd.value;
 
-            
-            for (let i = pageStart; i <= pageEnd; i++) {
-                let page = this.editor.pdfDocument.getPage(i);
-                page.elements.add('text', {
+            const totalPages = this.reader.pageCount;
+            let start = Math.max(1, parseInt(elPageStart.value || '1'));
+            let end = Math.min(totalPages, parseInt(elPageEnd.value || String(totalPages)));
+            if (!Number.isFinite(start) || !Number.isFinite(end) || start > end) {
+                return;
+            }
+
+            const created = [];
+            const marginX = 20;
+            const marginY = 20;
+
+            const updateHistoryCount = () => {
+                const elSpan = document.querySelector('#history_slider span');
+                if (!elSpan) return;
+                elSpan.textContent = document.querySelectorAll('#pdf-main .__pdf_editor_element').length;
+            };
+
+            const removeSilent = (page, id) => {
+                const element = page?.elements?.get?.(id);
+                if (!element) return;
+                try { element.remove(); } catch (e) {}
+                try { delete page.elements.items[id]; } catch (e) {}
+                if (page?.elements?.activeId === id) page.elements.activeId = null;
+            };
+
+            const posGroup = this.position <= 3 ? 'top' : 'bottom';
+            const align = pos[this.position] || 'left';
+
+            for (let pageNum = start; pageNum <= end; pageNum++) {
+                const page = this.editor.pdfDocument.getPage(pageNum);
+                if (!page) continue;
+
+                const text = pageNum + ' / ' + totalPages;
+                const element = page.elements.add('text', {
                     size: this.textSize,
                     color: this.textColor,
-                    text: i.toString(),
+                    text,
+                    lineHeight: this.textSize,
+                    opacity: 1,
                     fontFamily: this.fontFamily,
-                    fontFile: this.fontFile
+                    fontFile: this.fontFile,
                 }, {
-                    pos: {
-                        x: 0,
-                        y: 0
-                    }
+                    pos: { x: 0, y: 0 },
+                    readOnly: true,
+                    autoFocus: false,
                 }, true);
+                if (!element) continue;
+
+                const pageRect = page.readerPage?.content?.getBoundingClientRect?.() || page.readerPage?.elWrapper?.getBoundingClientRect?.();
+                const elRect = element.el.getBoundingClientRect();
+
+                let x = marginX;
+                if (align === 'center') x = pageRect.width / 2 - elRect.width / 2;
+                else if (align === 'right') x = pageRect.width - elRect.width - marginX;
+
+                let y = marginY;
+                if (posGroup === 'bottom') y = pageRect.height - elRect.height - marginY;
+
+                x = Math.max(0, Math.round(x));
+                y = Math.max(0, Math.round(y));
+                element.el.style.left = x + 'px';
+                element.el.style.top = y + 'px';
+                element.setActualRect?.();
+                element.disableDrag = true;
+                element.disableResize = true;
+                element.el.classList.remove('__resizable', '__resizable-border');
+                page.elements.setActive(null);
+
+                created.push({
+                    pageNum: page.pageNum,
+                    type: 'text',
+                    attrs: Object.assign({}, element.attrs, { id: element.id }),
+                    options: { pos: { x, y }, readOnly: true, autoFocus: false },
+                    id: element.id,
+                    post: { disableDrag: true, disableResize: true, removeResizable: true },
+                });
+            }
+
+            if (created.length > 0) {
+                updateHistoryCount();
+                PDFEvent.dispatch(Events.HISTORY_PUSH, {
+                    undo: () => {
+                        created.forEach(item => {
+                            const page = this.editor.pdfDocument.getPage(item.pageNum);
+                            if (!page) return;
+                            removeSilent(page, item.id);
+                        });
+                        updateHistoryCount();
+                    },
+                    redo: () => {
+                        created.forEach(item => {
+                            const page = this.editor.pdfDocument.getPage(item.pageNum);
+                            if (!page) return;
+                            const element = page.elements.add(item.type, item.attrs, item.options, true);
+                            if (!element) return;
+                            try {
+                                if (item.post?.disableDrag) element.disableDrag = true;
+                                if (item.post?.disableResize) element.disableResize = true;
+                                if (item.post?.removeResizable) element.el.classList.remove('__resizable', '__resizable-border');
+                                element.el.style.left = item.options?.pos?.x + 'px';
+                                element.el.style.top = item.options?.pos?.y + 'px';
+                                element.setActualRect?.();
+                                page.elements.setActive(null);
+                            } catch (e) {}
+                        });
+                        updateHistoryCount();
+                    }
+                });
             }
         });
         

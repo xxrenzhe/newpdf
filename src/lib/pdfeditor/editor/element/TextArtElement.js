@@ -27,7 +27,7 @@ class TextArtElement extends TextElement {
         canvas.width = _width - 6;
         canvas.height = _height;
         
-        let ctx = canvas.getContext('2d');
+        let ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (this.attrs.background) {
             ctx.fillStyle = this.attrs.background;
             ctx.fillRect(0, 0, canvas.width, canvas.height);

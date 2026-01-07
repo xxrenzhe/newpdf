@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { Upload, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 interface FileUploadProps {
   onFileSelect?: (file: File) => void;
@@ -11,7 +11,6 @@ interface FileUploadProps {
 }
 
 export default function FileUpload({ onFileSelect, maxSizeMB = 100 }: FileUploadProps) {
-  const router = useRouter();
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
@@ -27,25 +26,7 @@ export default function FileUpload({ onFileSelect, maxSizeMB = 100 }: FileUpload
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      handleFile(files[0]);
-    }
-  }, []);
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      handleFile(files[0]);
-    }
-  };
-
-  const handleFile = async (file: File) => {
+  const handleFile = useCallback(async (file: File) => {
     const maxSize = maxSizeMB * 1024 * 1024;
     if (file.size > maxSize) {
       alert(`File size must be less than ${maxSizeMB}MB`);
@@ -59,9 +40,13 @@ export default function FileUpload({ onFileSelect, maxSizeMB = 100 }: FileUpload
     }
 
     setSelectedFile(file);
-    onFileSelect?.(file);
 
-    // Simulate processing
+    // Pure frontend file handling - no server upload
+    if (onFileSelect) {
+      onFileSelect(file);
+    }
+
+    // Simulate processing for UI feedback
     setIsProcessing(true);
     let currentProgress = 0;
     const interval = setInterval(() => {
@@ -70,34 +55,25 @@ export default function FileUpload({ onFileSelect, maxSizeMB = 100 }: FileUpload
       if (currentProgress >= 100) {
         clearInterval(interval);
         setIsProcessing(false);
-        // Convert file to base64 and navigate to edit page
-        navigateToEditor(file);
       }
     }, 200);
-  };
+  }, [maxSizeMB, onFileSelect]);
 
-  const navigateToEditor = async (file: File) => {
-    try {
-      // Read file as ArrayBuffer
-      const arrayBuffer = await file.arrayBuffer();
-      // Convert to base64
-      const base64 = btoa(
-        new Uint8Array(arrayBuffer).reduce(
-          (data, byte) => data + String.fromCharCode(byte),
-          ''
-        )
-      );
-      // Store in sessionStorage (for page refresh persistence)
-      sessionStorage.setItem('pdfData', base64);
-      sessionStorage.setItem('pdfFileName', file.name);
-      // Navigate to edit page
-      router.push('/edit-pdf');
-    } catch (error) {
-      console.error('Error processing file:', error);
-      alert('Failed to process file. Please try again.');
-      setSelectedFile(null);
-      setProgress(0);
-      setIsProcessing(false);
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleFile(files[0]);
+    }
+  }, [handleFile]);
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFile(files[0]);
     }
   };
 
@@ -132,14 +108,14 @@ export default function FileUpload({ onFileSelect, maxSizeMB = 100 }: FileUpload
                 Drop your files here
               </h3>
               <p className="text-white/90 text-sm mb-6">
-                Size up to {maxSizeMB} MB
+                Size up to {maxSizeMB} MB • Files are processed locally in your browser
               </p>
               <input
                 type="file"
                 id="file-upload"
                 className="hidden"
                 onChange={handleFileInput}
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                accept=".pdf"
               />
               <label htmlFor="file-upload">
                 <Button
@@ -197,5 +173,3 @@ export default function FileUpload({ onFileSelect, maxSizeMB = 100 }: FileUpload
     </div>
   );
 }
-
-import Link from "next/link";

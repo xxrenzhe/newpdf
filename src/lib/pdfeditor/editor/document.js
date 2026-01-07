@@ -65,7 +65,7 @@ export class PDFDocument {
                 }
             }
         }
-        PDFEvent.dispatch(Event.DOWNLOAD);
+        PDFEvent.dispatch(Events.DOWNLOAD);
     }
 
     async getFont(pageId, text, fontFile) {
@@ -134,7 +134,22 @@ export class PDFDocument {
                 }
             } else {
                 //从服务器拉取字体数据
-                arrayBuffer = await Font.fetchFont(pageId, text, fontFile);
+                // Pure frontend: prefer built-in standard fonts when possible.
+                // For CJK text, fall back to the bundled unicode font via Font.fetchFont.
+                const isIncludeCJK = new RegExp(Font.CJK_RANGE);
+                if (!isIncludeCJK.test(text)) {
+                    if (fontFile == 'Helvetica.ttf') {
+                        arrayBuffer = StandardFonts.Helvetica;
+                    } else if (fontFile == 'Times-Roman.ttf') {
+                        arrayBuffer = StandardFonts.TimesRoman;
+                    } else if (fontFile == 'Courier.ttf') {
+                        arrayBuffer = StandardFonts.Courier;
+                    }
+                }
+
+                if (!arrayBuffer) {
+                    arrayBuffer = await Font.fetchFont(pageId, text, fontFile);
+                }
                 this.setFont(pageId, fontFile, arrayBuffer);
             }
             // if (!arrayBuffer) {
@@ -195,6 +210,12 @@ export class PDFDocument {
         if (!page.newPagesize) {
             this.pageRemoved.push(index);
         }
+
+        try {
+            this.editor?.reader?.mainObserver?.unobserve?.(page.readerPage.elContainer);
+            this.editor?.reader?.thumbsObserver?.unobserve?.(page.readerPage.elThumbs);
+        } catch (e) {}
+
         page.readerPage.elContainer.remove();
         page.readerPage.elThumbs.remove();
 

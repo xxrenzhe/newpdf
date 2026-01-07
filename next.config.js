@@ -11,6 +11,7 @@ const LANG_MESSAGES = fs.existsSync(localeFilePath)
   : {};
 
 const nextConfig = {
+  outputFileTracingRoot: path.join(__dirname),
   allowedDevOrigins: ["*.preview.same-app.com"],
 
   images: {

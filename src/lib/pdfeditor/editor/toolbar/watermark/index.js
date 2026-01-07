@@ -27,6 +27,8 @@ class Watermark extends ToolbarItemBase {
         this.rotate = 0;
         this.mode = 'text';
         this.arrayBuffer = null;
+        this._previewUrl = null;
+        this._updatePreviewImage = null;
 
 
         this.dialog = new Dialog({
@@ -43,20 +45,65 @@ class Watermark extends ToolbarItemBase {
         const elImgBox = elBody.querySelector('.watermark_uploadimg');
         const elPreviewBox = elBody.querySelector('.' + PREVIEW_BOX_CLASS);
         const elPreview = elBody.querySelector('#' + PREVIEW_ID);
-        this.reader.pdfDocument.getPageActive().toImage().then(dataURL => {
-            elPreview.setAttribute('src', dataURL);
-        });
+
+        if (!elPreviewBox || !elPreview) {
+            console.warn('Watermark preview elements not found');
+            return;
+        }
+
+        // Use a lightweight thumbnail for the dialog preview (avoid large base64 images in memory).
+        this._updatePreviewImage = () => {
+            try {
+                const page = this.reader.pdfDocument.getPageActive();
+                if (!page?.renderThumb) return;
+                page.renderThumb({ height: 320, outputScale: 1 })
+                    .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')))
+                    .then(blob => {
+                        if (!blob) return;
+                        if (this._previewUrl) {
+                            try { URL.revokeObjectURL(this._previewUrl); } catch (e) {}
+                        }
+                        this._previewUrl = URL.createObjectURL(blob);
+                        elPreview.setAttribute('src', this._previewUrl);
+                    })
+                    .catch(() => {});
+            } catch (e) {}
+        };
+        this._updatePreviewImage();
+
+        // Create text element early so it can be referenced in event handlers
+        const elText = document.createElement('div');
+        elText.style.color = this.textColor;
+        elText.style.position = 'absolute';
+        elText.style.fontSize = this.textSize + 'px';
+        elPreviewBox.appendChild(elText);
 
         const elImg = new window.Image();
         elImg.style.position = 'absolute';
         elPreviewBox.appendChild(elImg);
+
+        const arrTexts = [];
+        const arrImgs = [];
         //上传图片
         const elFile = elBody.querySelector('#' + UPLOAD_ID);
+        if (!elFile) {
+            console.warn('Watermark file upload element not found');
+            return;
+        }
+
+        let uploadObjectUrl = null;
         elFile.addEventListener('change', e => {
             let file = e.target.files[0];
             if (file) {
+                if (uploadObjectUrl) {
+                    try { URL.revokeObjectURL(uploadObjectUrl); } catch (e) {}
+                }
+                uploadObjectUrl = URL.createObjectURL(file);
                 elImg.addEventListener('load', () => {
-                    URL.revokeObjectURL(file);
+                    if (uploadObjectUrl) {
+                        try { URL.revokeObjectURL(uploadObjectUrl); } catch (e) {}
+                        uploadObjectUrl = null;
+                    }
                     const fileReader = new FileReader();
                     fileReader.readAsArrayBuffer(file);
                     fileReader.addEventListener('loadend', async e => {
@@ -76,8 +123,8 @@ class Watermark extends ToolbarItemBase {
                     setTimeout(() => {
                         __updatePreview();
                     }, 10);
-                });
-                elImg.src = URL.createObjectURL(file);
+                }, { once: true });
+                elImg.src = uploadObjectUrl;
                 
             }
             elFile.value = '';
@@ -131,8 +178,6 @@ class Watermark extends ToolbarItemBase {
         });
 
 
-        const arrTexts = [];
-        const arrImgs = [];
         const __updatePreview = () => {
             let rectText = elText.getBoundingClientRect();
             let rectImg = elImg.getBoundingClientRect();
@@ -239,6 +284,12 @@ class Watermark extends ToolbarItemBase {
 
         let elMosaic = elBody.querySelector('#mosaic');
         let oldPosItem = elBody.querySelector('.popup_pos_item.' + POS_ACTIVE_CLASS);
+
+        if (!elMosaic) {
+            console.warn('Watermark mosaic element not found');
+            return;
+        }
+
         elMosaic.addEventListener('click', e => {
             elBody.querySelectorAll('.popup_pos_item').forEach(el => {
                 if (elMosaic.checked) {
@@ -246,8 +297,10 @@ class Watermark extends ToolbarItemBase {
                     this.position = 10;
                 } else {
                     el.classList.remove(POS_ACTIVE_CLASS);
-                    oldPosItem.classList.add(POS_ACTIVE_CLASS);
-                    this.position = oldPosItem.getAttribute('data-pos');
+                    if (oldPosItem) {
+                        oldPosItem.classList.add(POS_ACTIVE_CLASS);
+                        this.position = oldPosItem.getAttribute('data-pos');
+                    }
                 }
             });
             __updatePreview();
@@ -265,11 +318,11 @@ class Watermark extends ToolbarItemBase {
         });
 
         const elWatermarkText = elBody.querySelector('#' + WATERMARK_TEXT);
-        const elText = document.createElement('div');
-        elText.style.color = this.textColor;
-        elText.style.position = 'absolute';
-        elText.style.fontSize = this.textSize + 'px';
-        elPreviewBox.appendChild(elText);
+
+        if (!elWatermarkText) {
+            console.warn('Watermark text input not found');
+            return;
+        }
 
         elWatermarkText.addEventListener('input', e => {
             this.text = elWatermarkText.value;
@@ -490,6 +543,7 @@ class Watermark extends ToolbarItemBase {
     }
 
     onClick() {
+        this._updatePreviewImage?.();
         this.dialog.open();
     }
 }

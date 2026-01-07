@@ -4,6 +4,7 @@ import FileUpload from "@/components/shared/FileUpload";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LucideIcon, Clock } from "lucide-react";
+import Link from "next/link";
 
 interface ToolPageTemplateProps {
   title: string;
@@ -65,10 +66,10 @@ export default function ToolPageTemplate({
                     This tool is under development
                   </h3>
                   <p className="text-muted-foreground mb-6">
-                    We're working hard to bring you this feature. In the meantime, check out our other powerful PDF tools.
+                    We&apos;re working hard to bring you this feature. In the meantime, check out our other powerful PDF tools.
                   </p>
                   <Button asChild>
-                    <a href="/">Browse All Tools</a>
+                    <Link href="/">Browse All Tools</Link>
                   </Button>
                 </div>
               </div>

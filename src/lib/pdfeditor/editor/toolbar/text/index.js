@@ -16,6 +16,8 @@ class Text extends ToolbarItemBase {
             background: null,
             bold: false,
             italic: false,
+            textAlign: 'left',
+            letterSpacing: 0,
             rotate: undefined,
             fontFamily: 'Helvetica',
             fontFile: 'NotoSansCJKsc-Regular.otf'
@@ -38,38 +40,42 @@ class Text extends ToolbarItemBase {
         temp.innerHTML = require('./actions.phtml')();
 
         const elFontDropdown = temp.querySelector('.font-dropdown');
-        fontList.forEach((font, i) => {
-            let elOption = document.createElement('div');
-            elOption.classList.add('font-item');
-            elOption.textContent = font.showName;
-            elOption.fontFamily = font.fontFamily;
-            elOption.fontFile = font.fontFile;
-            elOption.addEventListener('click', e => {
-                e.stopPropagation();
-                this.updateAttrs({
-                    fontFamily: elOption.fontFamily,
-                    fontFile: elOption.fontFile
-                }, objElement);
-                if (objElement) {
-                    objElement.elText.focus();
+        if (elFontDropdown) {
+            fontList.forEach((font, i) => {
+                let elOption = document.createElement('div');
+                elOption.classList.add('font-item');
+                elOption.textContent = font.showName;
+                elOption.fontFamily = font.fontFamily;
+                elOption.fontFile = font.fontFile;
+                elOption.addEventListener('click', e => {
+                    e.stopPropagation();
+                    this.updateAttrs({
+                        fontFamily: elOption.fontFamily,
+                        fontFile: elOption.fontFile
+                    }, objElement);
+                    if (objElement) {
+                        objElement.elText.focus();
+                    }
+                    elFontDropdown.classList.remove('show');
+                });
+                elFontDropdown.appendChild(elOption);
+                if (i == 0) {
+                    this.attrs.fontFamily = font.fontFamily;
+                    this.attrs.fontFile = font.fontFile;
                 }
-                elFontDropdown.classList.remove('show');
             });
-            elFontDropdown.appendChild(elOption);
-            if (i == 0) {
-                this.attrs.fontFamily = font.fontFamily;
-                this.attrs.fontFile = font.fontFile;
-            }
-        });
+        }
 
         const btnFontList = temp.querySelector('.fontlist');
-        btnFontList.addEventListener('click', () => {
-            if (elFontDropdown.classList.contains('show')) {
-                elFontDropdown.classList.remove('show');
-            } else {
-                elFontDropdown.classList.add('show');
-            }
-        });
+        if (btnFontList && elFontDropdown) {
+            btnFontList.addEventListener('click', () => {
+                if (elFontDropdown.classList.contains('show')) {
+                    elFontDropdown.classList.remove('show');
+                } else {
+                    elFontDropdown.classList.add('show');
+                }
+            });
+        }
 
         // elFontList.addEventListener('change', () => {
         //     this.updateAttrs({
@@ -92,210 +98,282 @@ class Text extends ToolbarItemBase {
         // });
 
         const elFontsizePlus = temp.querySelector('.fontsize_plus');
-        elFontsizePlus.addEventListener('click', () => {
-            let size = ++this.attrs.size;
-            let lineHeight = ++this.attrs.lineHeight;
-            if (objElement) {
-                size = ++objElement.attrs.size;
-                lineHeight = ++objElement.attrs.lineHeight;
-            }
-            this.updateAttrs({
-                size: size,
-                lineHeight: lineHeight
-            }, objElement);
-        });
+        if (elFontsizePlus) {
+            elFontsizePlus.addEventListener('click', () => {
+                let size = ++this.attrs.size;
+                let lineHeight = ++this.attrs.lineHeight;
+                if (objElement) {
+                    size = ++objElement.attrs.size;
+                    lineHeight = ++objElement.attrs.lineHeight;
+                }
+                this.updateAttrs({
+                    size: size,
+                    lineHeight: lineHeight
+                }, objElement);
+            });
+        }
 
         const elFontsizeReduce = temp.querySelector('.fontsize_reduce');
-        elFontsizeReduce.addEventListener('click', () => {
-            let size = --this.attrs.size;
-            let lineHeight = --this.attrs.lineHeight;
-            if (objElement) {
-                size = --objElement.attrs.size;
-                lineHeight = --objElement.attrs.lineHeight;
-            }
-            this.updateAttrs({
-                size: size,
-                lineHeight: lineHeight
-            }, objElement);
-        });
+        if (elFontsizeReduce) {
+            elFontsizeReduce.addEventListener('click', () => {
+                let size = --this.attrs.size;
+                let lineHeight = --this.attrs.lineHeight;
+                if (objElement) {
+                    size = --objElement.attrs.size;
+                    lineHeight = --objElement.attrs.lineHeight;
+                }
+                this.updateAttrs({
+                    size: size,
+                    lineHeight: lineHeight
+                }, objElement);
+            });
+        }
 
         const elFontBold = temp.querySelector('.font_bold');
-        elFontBold.addEventListener('click', () => {
-            const status = CSSActive(elFontBold);
-            this.updateAttrs({
-                bold: !status
-            }, objElement);
-        });
+        if (elFontBold) {
+            elFontBold.addEventListener('click', () => {
+                const status = CSSActive(elFontBold);
+                this.updateAttrs({
+                    bold: !status
+                }, objElement);
+            });
+        }
 
         const elFontItalic = temp.querySelector('.font_italic');
-        elFontItalic.addEventListener('click', () => {
-            const status = CSSActive(elFontItalic);
-            this.updateAttrs({
-                italic: !status
-            }, objElement);
-        });
+        if (elFontItalic) {
+            elFontItalic.addEventListener('click', () => {
+                const status = CSSActive(elFontItalic);
+                this.updateAttrs({
+                    italic: !status
+                }, objElement);
+            });
+        }
+
+        // Text alignment handlers
+        const elAlignLeft = temp.querySelector('.font_align_left');
+        const elAlignCenter = temp.querySelector('.font_align_center');
+        const elAlignRight = temp.querySelector('.font_align_right');
+        let gAlignButtons = [elAlignLeft, elAlignCenter, elAlignRight].filter(btn => btn !== null);
+
+        if (elAlignLeft) {
+            elAlignLeft.addEventListener('click', () => {
+                gAlignButtons.forEach(btn => btn.classList.remove('active'));
+                elAlignLeft.classList.add('active');
+                this.updateAttrs({
+                    textAlign: 'left'
+                }, objElement);
+            });
+        }
+
+        if (elAlignCenter) {
+            elAlignCenter.addEventListener('click', () => {
+                gAlignButtons.forEach(btn => btn.classList.remove('active'));
+                elAlignCenter.classList.add('active');
+                this.updateAttrs({
+                    textAlign: 'center'
+                }, objElement);
+            });
+        }
+
+        if (elAlignRight) {
+            elAlignRight.addEventListener('click', () => {
+                gAlignButtons.forEach(btn => btn.classList.remove('active'));
+                elAlignRight.classList.add('active');
+                this.updateAttrs({
+                    textAlign: 'right'
+                }, objElement);
+            });
+        }
+
+        // Set default alignment
+        if (elAlignLeft) {
+            elAlignLeft.classList.add('active');
+        }
 
         const elUnderline = temp.querySelector('.font_underline');
         const elStrike = temp.querySelector('.font_strike');
-        let gLineStyle = [elUnderline, elStrike];
+        let gLineStyle = [elUnderline, elStrike].filter(el => el !== null);
 
-        elUnderline.addEventListener('click', () => {
-            const status = CSSActive(gLineStyle, elUnderline);
-            this.updateAttrs({
-                lineStyle: status ? null : 'underline'
-            }, objElement);
-        });
+        if (elUnderline) {
+            elUnderline.addEventListener('click', () => {
+                const status = CSSActive(gLineStyle, elUnderline);
+                this.updateAttrs({
+                    lineStyle: status ? null : 'underline'
+                }, objElement);
+            });
+        }
 
-        
-        elStrike.addEventListener('click', () => {
-            const status = CSSActive(gLineStyle, elStrike);
-            this.updateAttrs({
-                lineStyle: status ? null : 'strike'
-            }, objElement);
-        });
+        if (elStrike) {
+            elStrike.addEventListener('click', () => {
+                const status = CSSActive(gLineStyle, elStrike);
+                this.updateAttrs({
+                    lineStyle: status ? null : 'strike'
+                }, objElement);
+            });
+        }
 
 
         const elFontBGColor = temp.querySelector('.font_bg');
-        const elFontBGColorApply = elFontBGColor.querySelector('.color-icon');
-        const elFontBGColorPickr = elFontBGColor.querySelector('.arrow');
-        const elFontBGColorPreview = elFontBGColor.querySelector('.color_preview');
-        elFontBGColorPreview.style.backgroundColor = this.defBGColor;
-        elFontBGColorPreview.setAttribute('data-color', this.defBGColor);
-        elFontBGColorApply.addEventListener('click', () => {
-            if (objElement) {
-                let color = elFontBGColorPreview.getAttribute('data-color');
-                objElement.attrs.background = color;
-                objElement.setStyle();
-                objElement.zoom(objElement.scale);
-            }
-        });
+        if (elFontBGColor) {
+            const elFontBGColorApply = elFontBGColor.querySelector('.color-icon');
+            const elFontBGColorPickr = elFontBGColor.querySelector('.arrow');
+            const elFontBGColorPreview = elFontBGColor.querySelector('.color_preview');
 
-        const applyBGColor = objColor => {
-            let background = objColor.toHEXA().toString().toLocaleLowerCase();
-            elFontBGColorPreview.style.backgroundColor = background;
-            elFontBGColorPreview.setAttribute('data-color', background);
-            if (objElement) {
-                objElement.attrs.background = background;
-                objElement.setStyle();
-                objElement.zoom(objElement.scale);
-            } else {
-                this.defBGColor = background;
+            if (elFontBGColorPreview) {
+                elFontBGColorPreview.style.backgroundColor = this.defBGColor;
+                elFontBGColorPreview.setAttribute('data-color', this.defBGColor);
+            }
+
+            if (elFontBGColorApply && elFontBGColorPreview) {
+                elFontBGColorApply.addEventListener('click', () => {
+                    if (objElement) {
+                        let color = elFontBGColorPreview.getAttribute('data-color');
+                        objElement.attrs.background = color;
+                        objElement.setStyle();
+                        objElement.zoom(objElement.scale);
+                    }
+                });
+            }
+
+            if (elFontBGColorPickr && elFontBGColorPreview) {
+                const applyBGColor = objColor => {
+                    let background = objColor.toHEXA().toString().toLocaleLowerCase();
+                    elFontBGColorPreview.style.backgroundColor = background;
+                    elFontBGColorPreview.setAttribute('data-color', background);
+                    if (objElement) {
+                        objElement.attrs.background = background;
+                        objElement.setStyle();
+                        objElement.zoom(objElement.scale);
+                    } else {
+                        this.defBGColor = background;
+                    }
+                }
+
+                const bgColorPickr = Pickr.create({
+                    el: elFontBGColorPickr,
+                    theme: 'classic',
+                    comparison: false,
+                    useAsButton: true,
+                    default: this.defBGColor,
+                    swatches: COLOR_ITEMS,
+                    components: {
+                        preview: true,
+                        opacity: false,
+                        hue: true,
+
+                        interaction: {
+                            hex: true,
+                            rgba: false,
+                            hsla: false,
+                            hsva: false,
+                            cmyk: false,
+                            input: true,
+                            clear: false,
+                            save: false
+                        }
+                    }
+                });
+                bgColorPickr.on('show', () => {
+                    let color = this.defBGColor;
+                    if (objElement) {
+                        if (objElement.attrs.background) {
+                            color = objElement.attrs.background;
+                        }
+                    }
+                    bgColorPickr.setColor(color);
+                });
+
+                bgColorPickr.on('changestop', (source, instance) => {
+                    applyBGColor(instance.getColor());
+                });
+
+                bgColorPickr.on('swatchselect', objColor => {
+                    applyBGColor(objColor);
+                });
             }
         }
-
-        const bgColorPickr = Pickr.create({
-            el: elFontBGColorPickr,
-            theme: 'classic',
-            comparison: false,
-            useAsButton: true,
-            default: this.defBGColor,
-            swatches: COLOR_ITEMS,
-            components: {
-                preview: true,
-                opacity: false,
-                hue: true,
-
-                interaction: {
-                    hex: true,
-                    rgba: false,
-                    hsla: false,
-                    hsva: false,
-                    cmyk: false,
-                    input: true,
-                    clear: false,
-                    save: false
-                }
-            }
-        });
-        bgColorPickr.on('show', () => {
-            let color = this.defBGColor;
-            if (objElement) {
-                if (objElement.attrs.background) {
-                    color = objElement.attrs.background;
-                }
-            }
-            bgColorPickr.setColor(color);
-        });
-
-        bgColorPickr.on('changestop', (source, instance) => {
-            applyBGColor(instance.getColor());
-        });
-
-        bgColorPickr.on('swatchselect', objColor => {
-            applyBGColor(objColor);
-        });
 
 
 
         const elFontColor = temp.querySelector('.font_color');
-        const elFontColorApply = elFontColor.querySelector('.color-icon');
-        const elFontColorPickr = elFontColor.querySelector('.arrow');
-        const elFontColorPreview = elFontColor.querySelector('.color_preview');
-        elFontColorPreview.style.backgroundColor = this.defTextColor;
-        elFontColorPreview.setAttribute('data-color', this.defTextColor);
-        elFontColorApply.addEventListener('click', () => {
-            if (objElement) {
-                let color = elFontColorPreview.getAttribute('data-color');
-                objElement.attrs.color = color;
-                objElement.setStyle();
-                objElement.zoom(objElement.scale);
-            }
-        });
+        if (elFontColor) {
+            const elFontColorApply = elFontColor.querySelector('.color-icon');
+            const elFontColorPickr = elFontColor.querySelector('.arrow');
+            const elFontColorPreview = elFontColor.querySelector('.color_preview');
 
-        const applyColor = objColor => {
-            let color = objColor.toHEXA().toString().toLocaleLowerCase();
-            elFontColorPreview.style.backgroundColor = color;
-            elFontColorPreview.setAttribute('data-color', color);
-            if (objElement) {
-                objElement.attrs.color = color;
-                objElement.setStyle();
-                objElement.zoom(objElement.scale);
-            } else {
-                this.defTextColor = color;
+            if (elFontColorPreview) {
+                elFontColorPreview.style.backgroundColor = this.defTextColor;
+                elFontColorPreview.setAttribute('data-color', this.defTextColor);
+            }
+
+            if (elFontColorApply && elFontColorPreview) {
+                elFontColorApply.addEventListener('click', () => {
+                    if (objElement) {
+                        let color = elFontColorPreview.getAttribute('data-color');
+                        objElement.attrs.color = color;
+                        objElement.setStyle();
+                        objElement.zoom(objElement.scale);
+                    }
+                });
+            }
+
+            if (elFontColorPickr && elFontColorPreview) {
+                const applyColor = objColor => {
+                    let color = objColor.toHEXA().toString().toLocaleLowerCase();
+                    elFontColorPreview.style.backgroundColor = color;
+                    elFontColorPreview.setAttribute('data-color', color);
+                    if (objElement) {
+                        objElement.attrs.color = color;
+                        objElement.setStyle();
+                        objElement.zoom(objElement.scale);
+                    } else {
+                        this.defTextColor = color;
+                    }
+                }
+
+                const textColorPickr = Pickr.create({
+                    el: elFontColorPickr,
+                    theme: 'classic',
+                    comparison: false,
+                    useAsButton: true,
+                    default: this.defTextColor,
+                    swatches: COLOR_ITEMS,
+                    components: {
+                        preview: true,
+                        opacity: false,
+                        hue: true,
+
+                        interaction: {
+                            hex: true,
+                            rgba: false,
+                            hsla: false,
+                            hsva: false,
+                            cmyk: false,
+                            input: true,
+                            clear: false,
+                            save: false
+                        }
+                    }
+                });
+                textColorPickr.on('show', () => {
+                    let color = this.defTextColor;
+                    if (objElement) {
+                        if (objElement.attrs.color) {
+                            color = objElement.attrs.color;
+                        }
+                    }
+                    textColorPickr.setColor(color);
+                });
+
+                textColorPickr.on('changestop', (source, instance) => {
+                    applyColor(instance.getColor());
+                });
+
+                textColorPickr.on('swatchselect', objColor => {
+                    applyColor(objColor);
+                });
             }
         }
-
-        const textColorPickr = Pickr.create({
-            el: elFontColorPickr,
-            theme: 'classic',
-            comparison: false,
-            useAsButton: true,
-            default: this.defTextColor,
-            swatches: COLOR_ITEMS,
-            components: {
-                preview: true,
-                opacity: false,
-                hue: true,
-
-                interaction: {
-                    hex: true,
-                    rgba: false,
-                    hsla: false,
-                    hsva: false,
-                    cmyk: false,
-                    input: true,
-                    clear: false,
-                    save: false
-                }
-            }
-        });
-        textColorPickr.on('show', () => {
-            let color = this.defTextColor;
-            if (objElement) {
-                if (objElement.attrs.color) {
-                    color = objElement.attrs.color;
-                }
-            }
-            textColorPickr.setColor(color);
-        });
-
-        textColorPickr.on('changestop', (source, instance) => {
-            applyColor(instance.getColor());
-        });
-
-        textColorPickr.on('swatchselect', objColor => {
-            applyColor(objColor);
-        });
 
 
 

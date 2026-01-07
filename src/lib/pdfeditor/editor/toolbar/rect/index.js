@@ -9,7 +9,7 @@ class Rect extends ToolbarItemBase {
     init() {
         this.name = 'rect';
         let attrs = {
-            background: '#ffffff',
+            background: '#ffcd45', // Default to first color (orange)
             opacity: 1,
             rotate: undefined,
             borderWidth: undefined,
@@ -45,14 +45,29 @@ class Rect extends ToolbarItemBase {
         }
 
         const elColors = temp.querySelector('.__act_colors');
-        elColors.querySelectorAll('.color-item').forEach(elColor => {
+        const colorItems = elColors.querySelectorAll('.color-item');
+        colorItems.forEach(elColor => {
             elColor.addEventListener('click', e => {
                 let background = elColor.getAttribute('data-color');
+                console.log('[Rect] Color clicked:', background, 'objElement:', objElement);
                 this.updateAttrs({
                     background
                 }, objElement);
 
                 this.__setPreview(elPreview);
+                console.log('[Rect] After updateAttrs, this.attrs.background:', this.attrs.background);
+
+                // Destroy existing drawHandles so they will be recreated with new color
+                if (!objElement) {
+                    console.log('[Rect] Destroying existing drawHandles to apply new color');
+                    Object.keys(this.drawHandles).forEach(pageNum => {
+                        const handle = this.drawHandles[pageNum];
+                        if (handle && handle.destroy) {
+                            handle.destroy();
+                        }
+                    });
+                    this.drawHandles = {};
+                }
             });
         });
 
@@ -89,6 +104,18 @@ class Rect extends ToolbarItemBase {
             }, objElement);
 
             this.__setPreview(elPreview);
+
+            // Destroy existing drawHandles so they will be recreated with new color
+            if (!objElement) {
+                console.log('[Rect] Destroying existing drawHandles to apply new color (from picker)');
+                Object.keys(this.drawHandles).forEach(pageNum => {
+                    const handle = this.drawHandles[pageNum];
+                    if (handle && handle.destroy) {
+                        handle.destroy();
+                    }
+                });
+                this.drawHandles = {};
+            }
         });
 
 
@@ -129,15 +156,23 @@ class Rect extends ToolbarItemBase {
 
     setAttrs(attrs) {
         super.setAttrs(attrs);
-        for (let i in this.drawHandles) {
-            let handle = this.drawHandles[i];
-            handle.background = this.attrs.background;
-            handle.opacity = this.attrs.opacity;
+        // If background or opacity changed, clear cached drawHandles to force recreation with new colors
+        if (attrs.background !== undefined || attrs.opacity !== undefined) {
+            console.log('[Rect] setAttrs - clearing drawHandles cache due to color/opacity change');
+            // Destroy existing drawHandles to remove event listeners
+            Object.keys(this.drawHandles).forEach(pageNum => {
+                const handle = this.drawHandles[pageNum];
+                if (handle && handle.destroy) {
+                    handle.destroy();
+                }
+            });
+            this.drawHandles = {};
         }
     }
 
     createDrawHandle(readerPage) {
         const page = this.editor.pdfDocument.getPage(readerPage.pageNum);
+        console.log('[Rect] createDrawHandle - using color:', this.attrs.background);
         return new DrawRect({
             container: readerPage.elDrawLayer,
             scrollElement: this.reader.parentElement,
@@ -181,11 +216,6 @@ class Rect extends ToolbarItemBase {
     }
 
     onActive(active) {
-        let pageNum = this.reader.pdfDocument.pageActive;
-        if (!this.drawHandles[pageNum]) {
-            const readerPage = this.reader.pdfDocument.getPage(pageNum);
-            this.drawHandles[pageNum] = this.createDrawHandle(readerPage);
-        }
         if (active) {
             this.enable();
         } else {

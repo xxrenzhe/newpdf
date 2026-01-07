@@ -62,6 +62,7 @@ class Dialog {
         this.elDialog = document.createElement('div');
         this.elDialog.className = CLASS_DIALOG;
         this.elDialog.setAttribute('id', this.id);
+        this.elDialog.setAttribute('data-pdfeditor-dialog', '1');
 
         this.elDialogOverlay = document.createElement('div');
         this.elDialogOverlay.className = CLASS_DIALOG_OVERLAY;

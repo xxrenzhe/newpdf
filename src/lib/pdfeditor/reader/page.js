@@ -20,6 +20,14 @@ export class PDFPage extends PDFPageBase {
     hideOriginElements = [];
     isConvertWidget = [];
     elInsertPage = null;
+    _onTextLayerClick = null;
+
+    unload() {
+        super.unload();
+        this.textParts = [];
+        this.textDivs = [];
+        // Keep clearTexts/hideOriginElements/isConvertWidget for save + re-render.
+    }
 
     init() {
         super.init();
@@ -33,7 +41,6 @@ export class PDFPage extends PDFPageBase {
         this.elInsertPage.textContent = Locale.get('insert_page');
         let elBox = document.createElement('div');
         elBox.classList.add(INSERT_PAGE_CLASS);
-        elBox.style.display = 'none';
         let elBg = document.createElement('div');
         elBg.classList.add('insert_page_bg');
         elBox.appendChild(elBg);
@@ -44,7 +51,6 @@ export class PDFPage extends PDFPageBase {
         let elRemoveBtn = document.createElement('img');
         elRemoveBtn.src = ASSETS_URL + 'img/deletepage.svg';
         elRemoveBtn.classList.add(REMOVE_BTN);
-        elRemoveBtn.style.display = 'none';
         elRemoveBtn.addEventListener('click', e => {
             e.stopPropagation();
             PDFEvent.dispatch(Events.PAGE_REMOVE, {
@@ -56,10 +62,6 @@ export class PDFPage extends PDFPageBase {
             e.stopPropagation();
         });
         this.elWrapper.appendChild(elRemoveBtn);
-        setTimeout(()=>{
-            elBox.style.display = 'flex';
-            elRemoveBtn.style.display = 'block';
-        },1000)
     }
 
     /**
@@ -75,6 +77,15 @@ export class PDFPage extends PDFPageBase {
         }
         this.elTextLayer.style.width = canvas.style.width;
         this.elTextLayer.style.height = canvas.style.height;
+        if (!this._onTextLayerClick) {
+            this._onTextLayerClick = (e) => {
+                const target = e?.target instanceof Element ? e.target : null;
+                const elDiv = target?.closest?.('[data-parts][data-idx]');
+                if (!elDiv) return;
+                this.convertWidget(elDiv);
+            };
+            this.elTextLayer.addEventListener('click', this._onTextLayerClick);
+        }
         
         const viewport = this.pageProxy.getViewport({ scale: this.scale / this.outputScale });
         this.getTextContent().then(async textContent => {
@@ -129,9 +140,9 @@ export class PDFPage extends PDFPageBase {
                         elDiv.classList.add('text-border');
                     }
                     let offsetX = 2;
-                    let styleLeft  = (parseInt(elDiv.style.left) * this.outputScale) + offsetX + 'px';
-                    let styleTop = (parseInt(elDiv.style.top) * this.outputScale) + 'px';
-                    let styleFontSize = (parseInt(elDiv.style.fontSize) * this.outputScale) + 'px';
+                    let styleLeft  = (parseFloat(elDiv.style.left) * this.outputScale) + offsetX + 'px';
+                    let styleTop = (parseFloat(elDiv.style.top) * this.outputScale) + 'px';
+                    let styleFontSize = (parseFloat(elDiv.style.fontSize) * this.outputScale) + 'px';
                     elDiv.style.left = styleLeft;
                     elDiv.style.top = styleTop;
                     elDiv.style.fontSize = styleFontSize;
@@ -156,9 +167,6 @@ export class PDFPage extends PDFPageBase {
                         elDiv.setAttribute('data-fontname', objs.name);
                     }
                     elements.push(elDiv);
-                    elDiv.addEventListener('click', () => {
-                        this.convertWidget(elDiv);
-                    });
 
                     if ((i+1) == this.textContentItems.length) {
                         this.textParts[n] = {

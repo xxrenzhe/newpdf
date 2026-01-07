@@ -161,7 +161,7 @@ class Arrow extends Base {
         let height = this.options.canvasHidth ? this.options.canvasHidth : rect.height;
         this.canvas.width = width;
         this.canvas.height = height;
-        this.ctx = this.canvas.getContext('2d');
+        this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
     }
 
     clearCanvas() {

@@ -4,7 +4,7 @@ class Highlight extends Rect {
     init() {
         this.name = 'highlight';
         let attrs = {
-            background: '#fff000',
+            background: '#ffcd45', // Default to first color (orange)
             opacity: 0.3,
             rotate: undefined,
             borderWidth: undefined,

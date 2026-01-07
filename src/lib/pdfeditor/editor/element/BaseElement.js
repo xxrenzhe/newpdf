@@ -10,6 +10,11 @@ class BaseElement {
             x: 0,
             y: 0
         },
+        // When true, focus editable elements right after creation (useful for the Text tool).
+        // Tools that create many elements (page number / header footer / watermark) should disable this.
+        autoFocus: true,
+        // When true, render as non-editable/read-only (useful for template-like elements).
+        readOnly: false,
         drawOffset: {
             y: 0,
             x: 0
@@ -279,7 +284,41 @@ class BaseElement {
         this.el.classList.add('active');
         this.el.setAttribute('data-type', this.dataType);
 
-        const elCanvas = this.page.readerPage.content;
+        // Some tools add elements to pages that haven't been rendered yet (offscreen pages).
+        // Ensure the reader page has a render target with correct dimensions so drag/resize logic works.
+        const readerPage = this.page.readerPage;
+        if (!readerPage.content) {
+            try {
+                await readerPage.getPageProxy?.();
+                if (readerPage.pageProxy) {
+                    const viewport = readerPage.pageProxy.getViewport({ scale: readerPage.scale });
+                    const width = viewport.width;
+                    const height = viewport.height;
+                    if (readerPage.elWrapper) {
+                        readerPage.elWrapper.style.width = width + 'px';
+                        readerPage.elWrapper.style.height = height + 'px';
+                    }
+                    if (readerPage.elDrawLayer) {
+                        readerPage.elDrawLayer.style.width = width + 'px';
+                        readerPage.elDrawLayer.style.height = height + 'px';
+                    }
+
+                    let placeholder = readerPage.elWrapper?.querySelector?.('.__pdf_item_render');
+                    if (!(placeholder instanceof HTMLCanvasElement)) {
+                        placeholder = document.createElement('canvas');
+                        placeholder.classList.add('__pdf_item_render');
+                        placeholder.style.width = width + 'px';
+                        placeholder.style.height = height + 'px';
+                        placeholder.width = 1;
+                        placeholder.height = 1;
+                        readerPage.elWrapper?.appendChild?.(placeholder);
+                    }
+                    readerPage.content = placeholder;
+                }
+            } catch (e) {}
+        }
+
+        const elCanvas = readerPage.content || readerPage.elWrapper;
         if (this.options.pos.x === null) {
             this.options.pos.x = (elCanvas.offsetWidth / 2.2) + 'px';
         }

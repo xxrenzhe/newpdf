@@ -12,7 +12,7 @@ class ToolbarItemBase {
         //是否触发toolbar点击事件
         this.clickable = true;
         //只有带有绘制功能的元素才用到
-        this.drawHandles = [];
+        this.drawHandles = {}; // Changed from [] to {} for proper object iteration
         this.status = false;
         this.actions = () => {};
         this.elActions = [];
@@ -85,6 +85,16 @@ class ToolbarItemBase {
             PDFEvent.dispatch(Events.TOOLBAR_ITEM_ACTIVE, this);
         } else {
             PDFEvent.dispatch(Events.TOOLBAR_ITEM_BLUR, this);
+            // When tool is deactivated, destroy all drawHandles to prevent event listener conflicts
+            if (this.drawHandles && typeof this.drawHandles === 'object') {
+                Object.keys(this.drawHandles).forEach(pageNum => {
+                    const handle = this.drawHandles[pageNum];
+                    if (handle && handle.destroy) {
+                        handle.destroy();
+                    }
+                });
+                this.drawHandles = {};
+            }
         }
         this.onActive(status);
     }
@@ -139,13 +149,13 @@ class ToolbarItemBase {
     }
 
     enable() {
-        this.drawHandles.forEach(handle => {
+        Object.values(this.drawHandles).forEach(handle => {
             handle.enable();
         });
     }
 
     disable() {
-        this.drawHandles.forEach(handle => {
+        Object.values(this.drawHandles).forEach(handle => {
             handle.disable();
         });
     }

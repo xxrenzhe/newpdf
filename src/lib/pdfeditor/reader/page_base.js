@@ -35,6 +35,7 @@ export class PDFPageBase {
     elDrawLayer = null;
     content = null;
     #canvasImage = null;
+    _outputScale = null;
 
     constructor(pdfDocument, pageNum, scale) {
         this.pdfDocument = pdfDocument;
@@ -49,6 +50,7 @@ export class PDFPageBase {
     }
 
     get outputScale() {
+        if (typeof this._outputScale === 'number' && this._outputScale > 0) return this._outputScale;
         return this.reader.outputScale;
     }
 
@@ -212,16 +214,20 @@ export class PDFPageBase {
     async renderCanvas() {
         await this.getPageProxy();
         const viewport = this.pageProxy.getViewport({ scale: this.scale });
+        const outputScale = typeof this.reader?.getOutputScaleForViewport === 'function'
+            ? this.reader.getOutputScaleForViewport(viewport)
+            : this.reader.outputScale;
+        this._outputScale = outputScale;
         const canvas = document.createElement('canvas');
         canvas.classList.add(CAVANS_CLASS);
         canvas.style.width = viewport.width + 'px';
         canvas.style.height = viewport.height + 'px';
-        canvas.width = Math.floor(viewport.width * this.outputScale);
-        canvas.height = Math.floor(viewport.height * this.outputScale);
+        canvas.width = Math.floor(viewport.width * outputScale);
+        canvas.height = Math.floor(viewport.height * outputScale);
         
         let context = canvas.getContext('2d');
-        let transform = this.outputScale !== 1 ?
-            [this.outputScale, 0, 0, this.outputScale, 0, 0] : null;
+        let transform = outputScale !== 1 ?
+            [outputScale, 0, 0, outputScale, 0, 0] : null;
 
         let renderContext = {
             canvasContext: context,
@@ -229,6 +235,73 @@ export class PDFPageBase {
             viewport: viewport
         };
         await this.pageProxy.render(renderContext).promise;
+        return canvas;
+    }
+
+    unload() {
+        try {
+            this.elWrapper?.querySelectorAll?.('.' + CAVANS_CLASS)?.forEach?.(el => {
+                try {
+                    if (el instanceof HTMLCanvasElement) {
+                        el.width = 0;
+                        el.height = 0;
+                    }
+                } catch (e) {}
+                try {
+                    el.remove();
+                } catch (e) {}
+            });
+        } catch (e) {}
+
+        try {
+            if (this.elTextLayer) {
+                this.elTextLayer.innerHTML = '';
+            }
+        } catch (e) {}
+
+        try {
+            if (this.elAnnotationLayer) {
+                this.elAnnotationLayer.innerHTML = '';
+            }
+        } catch (e) {}
+
+        try {
+            this.pageProxy?.cleanup?.();
+        } catch (e) {}
+
+        this.rendered = false;
+        this.content = null;
+        this.#canvasImage = null;
+        this._outputScale = null;
+        this.textDivs = [];
+        this.textContentItems = null;
+        this.textContentStyles = {};
+    }
+
+    /**
+     * Lightweight thumbnail render (does not affect main render state).
+     * @param {{height?: number, outputScale?: number}} opts
+     * @returns {Promise<HTMLCanvasElement>}
+     */
+    async renderThumb(opts = {}) {
+        await this.getPageProxy();
+        const targetHeight = typeof opts.height === 'number' && opts.height > 0 ? opts.height : 150;
+        const outScale = typeof opts.outputScale === 'number' && opts.outputScale > 0 ? opts.outputScale : 1;
+
+        const baseViewport = this.pageProxy.getViewport({ scale: 1 });
+        const scale = targetHeight / baseViewport.height;
+        const viewport = this.pageProxy.getViewport({ scale });
+
+        const canvas = document.createElement('canvas');
+        canvas.classList.add(CAVANS_CLASS);
+        canvas.style.width = viewport.width + 'px';
+        canvas.style.height = viewport.height + 'px';
+        canvas.width = Math.floor(viewport.width * outScale);
+        canvas.height = Math.floor(viewport.height * outScale);
+
+        const context = canvas.getContext('2d');
+        const transform = outScale !== 1 ? [outScale, 0, 0, outScale, 0, 0] : null;
+        await this.pageProxy.render({ canvasContext: context, transform, viewport }).promise;
         return canvas;
     }
 

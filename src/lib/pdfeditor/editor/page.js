@@ -122,6 +122,10 @@ export class PDFPage {
 
         let targetElementThumb = prevPage.readerPage.elThumbs;
         targetElementThumb.parentNode.insertBefore(newReaderPage.elThumbs, targetElementThumb.nextElementSibling);
+
+        if (this.reader.thumbsObserver) {
+            this.reader.thumbsObserver.observe(newReaderPage.elThumbs);
+        }
     }
 
     addToFirst(oriFirstPage, newReaderPage) {
@@ -168,6 +172,10 @@ export class PDFPage {
 
         let targetElementThumb = oriFirstPage.readerPage.elThumbs;
         targetElementThumb.parentNode.insertBefore(newReaderPage.elThumbs, targetElementThumb);
+
+        if (newReaderPage.reader.thumbsObserver) {
+            newReaderPage.reader.thumbsObserver.observe(newReaderPage.elThumbs);
+        }
     }
 
     insert() {

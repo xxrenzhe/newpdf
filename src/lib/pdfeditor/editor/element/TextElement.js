@@ -84,7 +84,8 @@ class TextElement extends BaseElement {
             this.attrs.text = this.elText.innerText;
         });
 
-        this.elText.setAttribute('contenteditable', true);
+        const readOnly = !!this.options.readOnly;
+        this.elText.setAttribute('contenteditable', readOnly ? 'false' : 'true');
         //禁用在选中文本时的可拖放事件
         this.elText.setAttribute('draggable', false);
         this.elText.addEventListener('dragstart', e => {
@@ -100,6 +101,9 @@ class TextElement extends BaseElement {
         // });
 
         this.elText.addEventListener('blur', e => {
+            if (readOnly) {
+                return;
+            }
             if (!trimSpace(this.attrs.text)) {
                 PDFEvent.dispatch(Events.HISTORY_REMOVE, {
                     page: this.page,
@@ -111,7 +115,11 @@ class TextElement extends BaseElement {
             // this.disableDrag = false;
             // this.elText.setAttribute('contenteditable', false);
             
-            this.page.elements.activeId = null;
+            // Only clear activeId if this element is still the active one.
+            // Otherwise, switching to another element can be broken by a late blur event.
+            if (this.page?.elements?.activeId === this.id) {
+                this.page.elements.activeId = null;
+            }
             //重复事件判断，编辑状态下点击console面板，再点击页面会多触发一次blur事件
             if (!this.el.classList.contains('active')) {
                 return;
@@ -125,6 +133,9 @@ class TextElement extends BaseElement {
         });
 
         setTimeout(() => {
+            if (readOnly || this.options.autoFocus === false) {
+                return;
+            }
             this.elText.style.cursor = 'auto';
             this.elText.focus();
 

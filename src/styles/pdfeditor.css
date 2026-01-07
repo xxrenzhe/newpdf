@@ -2691,7 +2691,7 @@ img {
 }
 
 .pdf-main-box .insert_page_box {
-    display: flex;
+    display: none;
     justify-content: center;
     margin-top: 20px;
     margin-bottom: 10px;
@@ -2719,9 +2719,15 @@ img {
 }
 
 .pdf-main-box .remove_page {
+    display: none;
     width: 25px;
     position: absolute;
     left: -29px;
+}
+
+/* Page controls only in Delete Pages mode */
+.pdf-main-box.__cursor_delete_pages .remove_page {
+    display: block;
 }
 
 .btn-download {

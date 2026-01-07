@@ -3,10 +3,8 @@ import rangy from 'rangy';
 import Pickr from '@simonwep/pickr';
 import 'rangy/lib/rangy-classapplier';
 import 'rangy/lib/rangy-highlighter';
-import { Events, PDFEvent } from '../../../event';
 
 const HIGHLIGHT_CLASS = 'text_highlight';
-const REMOVED_CLASS = '__removed';
 const TAG_NAME = 'highlight';
 
 class TextHighLight extends ToolbarItemBase {
@@ -30,48 +28,34 @@ class TextHighLight extends ToolbarItemBase {
             useExistingElements: true,
             onElementCreate: (el, that) => {
                 const page = this.reader.pdfDocument.getPageActive();
-                el.setAttribute('data-pageid', page.id);
                 el.style.background = this.attrs.background;
                 el.style.opacity = this.attrs.opacity;
 
-                setTimeout(() => {
+                requestAnimationFrame(() => {
                     const rect = el.getBoundingClientRect();
                     const mainRect = page.elWrapper.getBoundingClientRect();
-                    rect.x -= mainRect.x;
-                    rect.y -= mainRect.y;
-                    
-                    el.setAttribute('data-x', rect.x);
-                    el.setAttribute('data-y', rect.y);
-                    el.setAttribute('data-w', rect.width);
-                    el.setAttribute('data-h', rect.height);
+                    const x = rect.left - mainRect.left;
+                    const y = rect.top - mainRect.top;
+                    const width = rect.width;
+                    const height = rect.height;
+                    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) return;
+                    if (width <= 0 || height <= 0) return;
 
-                    PDFEvent.dispatch(Events.HISTORY_PUSH, {
-                        undo: () => {
-                            el.classList.add(REMOVED_CLASS);
-                            el.style.display = 'none';
+                    const editorPage = this.editor.pdfDocument.getPageForId(page.id) || this.editor.pdfDocument.getPage(page.pageNum);
+                    editorPage.elements.add('rect', {
+                        width,
+                        height,
+                        opacity: this.attrs.opacity,
+                        background: this.attrs.background,
+                    }, {
+                        pos: {
+                            x,
+                            y,
                         },
-                        redo: () => {
-                            el.classList.remove(REMOVED_CLASS);
-                            el.style.display = 'inline';
-                        }
                     });
-
-
-                    // const pageId = el.getAttribute('data-pageid');
-                    // const pagea = this.editor.pdfDocument.getPageForId(pageId);
-                    // let a = pagea.elements.add('rect', {
-                    //     width: rect.width,
-                    //     height: rect.height,
-                    //     opacity: this.attrs.opacity,
-                    //     background: this.attrs.background
-                    // }, {
-                    //     pos: {
-                    //         x: rect.x,
-                    //         y: rect.y
-                    //     }
-                    // });
-                    // console.log(a);
-                }, 200);
+                    editorPage.elements.setActive(null);
+                    el.remove();
+                });
             }
         });
 
@@ -81,34 +65,6 @@ class TextHighLight extends ToolbarItemBase {
                 this.highlighter.highlightSelection(HIGHLIGHT_CLASS);
                 rangy.getSelection().removeAllRanges();
             }
-        });
-
-        PDFEvent.on(Events.SAVE_BEFORE, e => {
-            this.reader.mainBox.querySelectorAll('.' + HIGHLIGHT_CLASS).forEach(el => {
-                if (el.classList.contains(REMOVED_CLASS)) {
-                    return;
-                }
-                const rect = {
-                    x: parseFloat(el.getAttribute('data-x')),
-                    y: parseFloat(el.getAttribute('data-y')),
-                    width: parseFloat(el.getAttribute('data-w')),
-                    height: parseFloat(el.getAttribute('data-h'))
-                };
-
-                const pageId = el.getAttribute('data-pageid');
-                const page = this.editor.pdfDocument.getPageForId(pageId);
-                page.elements.add('rect', {
-                    width: rect.width,
-                    height: rect.height,
-                    opacity: this.attrs.opacity,
-                    background: this.attrs.background
-                }, {
-                    pos: {
-                        x: rect.x,
-                        y: rect.y
-                    }
-                });
-            });
         });
     }
 

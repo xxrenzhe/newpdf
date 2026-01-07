@@ -8,7 +8,7 @@ class Line extends ToolbarItemBase {
         this.name = 'line';
         let attrs = {
             lineWidth: 2,
-            color: '#000000',
+            color: '#ffcd45', // Default to first color (orange)
             cap: 'round',
             opacity: 1,
             style: {
@@ -52,7 +52,8 @@ class Line extends ToolbarItemBase {
         }
 
         const elColors = temp.querySelector('.__act_colors');
-        elColors.querySelectorAll('.color-item').forEach(elColor => {
+        const colorItems = elColors.querySelectorAll('.color-item');
+        colorItems.forEach(elColor => {
             elColor.addEventListener('click', e => {
                 let color = elColor.getAttribute('data-color');
                 this.updateAttrs({
@@ -62,6 +63,15 @@ class Line extends ToolbarItemBase {
                 this.__setPreview(elPreview);
             });
         });
+
+        // Auto-select first color when tool is activated without an element
+        if (!objElement && colorItems.length > 0) {
+            const firstColor = colorItems[0].getAttribute('data-color');
+            this.updateAttrs({
+                color: firstColor
+            }, objElement);
+            this.__setPreview(elPreview);
+        }
 
         const elColorPickr = temp.querySelector('.color-picker');
         const colorPickr = Pickr.create({
@@ -169,12 +179,9 @@ class Line extends ToolbarItemBase {
 
     setAttrs(attrs) {
         super.setAttrs(attrs);
-        for (let i in this.drawHandles) {
-            let handle = this.drawHandles[i];
-            handle.lineWidth = this.attrs.lineWidth;
-            handle.lineColor = this.attrs.color;
-            handle.lineCap = this.attrs.cap;
-            handle.opacity = this.attrs.opacity;
+        // If color, lineWidth or opacity changed, clear cached drawHandles to force recreation
+        if (attrs.color !== undefined || attrs.lineWidth !== undefined || attrs.opacity !== undefined) {
+            this.drawHandles = {};
         }
     }
 
@@ -234,11 +241,6 @@ class Line extends ToolbarItemBase {
     }
 
     onActive(active) {
-        let pageNum = this.reader.pdfDocument.pageActive;
-        if (!this.drawHandles[pageNum]) {
-            const readerPage = this.reader.pdfDocument.getPage(pageNum);
-            this.drawHandles[pageNum] = this.createDrawHandle(readerPage);
-        }
         if (active) {
             this.enable();
         } else {

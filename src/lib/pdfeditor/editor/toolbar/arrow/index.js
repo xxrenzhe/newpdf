@@ -8,7 +8,7 @@ class Arrow extends ToolbarItemBase {
         this.name = 'arrow';
         let attrs = {
             lineWidth: 2,
-            color: '#ff0000',
+            color: '#ffcd45', // Default to first color (orange)
             opacity: 1,
             rotate: undefined
         };
@@ -44,7 +44,8 @@ class Arrow extends ToolbarItemBase {
         }
 
         const elColors = temp.querySelector('.__act_colors');
-        elColors.querySelectorAll('.color-item').forEach(elColor => {
+        const colorItems = elColors.querySelectorAll('.color-item');
+        colorItems.forEach(elColor => {
             elColor.addEventListener('click', e => {
                 let color = elColor.getAttribute('data-color');
                 this.updateAttrs({
@@ -54,6 +55,15 @@ class Arrow extends ToolbarItemBase {
                 this.__setPreview(elPreview);
             });
         });
+
+        // Auto-select first color when tool is activated without an element
+        if (!objElement && colorItems.length > 0) {
+            const firstColor = colorItems[0].getAttribute('data-color');
+            this.updateAttrs({
+                color: firstColor
+            }, objElement);
+            this.__setPreview(elPreview);
+        }
 
         const elColorPickr = temp.querySelector('.color-picker');
         const colorPickr = Pickr.create({
@@ -161,10 +171,9 @@ class Arrow extends ToolbarItemBase {
 
     setAttrs(attrs) {
         super.setAttrs(attrs);
-        for (let i in this.drawHandles) {
-            let handle = this.drawHandles[i];
-            handle.lineWidth = this.attrs.lineWidth;
-            handle.color = this.attrs.color;
+        // If color or lineWidth changed, clear cached drawHandles to force recreation
+        if (attrs.color !== undefined || attrs.lineWidth !== undefined) {
+            this.drawHandles = {};
         }
     }
 
@@ -221,11 +230,6 @@ class Arrow extends ToolbarItemBase {
     }
 
     onActive(active) {
-        let pageNum = this.reader.pdfDocument.pageActive;
-        if (!this.drawHandles[pageNum]) {
-            const readerPage = this.reader.pdfDocument.getPage(pageNum);
-            this.drawHandles[pageNum] = this.createDrawHandle(readerPage);
-        }
         if (active) {
             this.enable();
         } else {

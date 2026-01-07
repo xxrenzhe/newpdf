@@ -26,7 +26,7 @@ class OpObject {
 const Operator = {
     create: (element, elements) => {
         elements.items[element.id] = element;
-        element.page.readerPage.elWrapper.appendChild(element.el);
+        element.page.readerPage.elElementLayer.appendChild(element.el);
         element.zoom(element.scale);
         elements.setActive(element.id);
     },

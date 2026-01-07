@@ -4,14 +4,66 @@ import Pickr from '@simonwep/pickr';
 import { COLOR_ITEMS } from '../../../defines';
 const textArt = 'text_art';
 const textArtFont = 'text_art_font';
-const fontUrl = "https://fonts.qwerpdf.com/";
-const loadDom = document.querySelector('.loading_box');
+const fontUrl = ASSETS_URL + 'fonts/';
 const fontListBox = [];
 
 class TextArt extends ToolbarItemBase {
+    loadingOverlay = null;
+
+    ensureLoadingOverlay() {
+        if (this.loadingOverlay && this.loadingOverlay instanceof HTMLElement) {
+            return this.loadingOverlay;
+        }
+        let el = document.querySelector('.loading_box');
+        if (el instanceof HTMLElement) {
+            this.loadingOverlay = el;
+            return el;
+        }
+
+        el = document.createElement('div');
+        el.className = 'loading_box';
+        el.innerHTML = `
+          <div class="loading_main">
+            <div class="loading_content">
+              <img width="48" height="48" src="${ASSETS_URL}img/preload2.svg" alt="Loading" />
+            </div>
+          </div>
+        `;
+        document.body.appendChild(el);
+        this.loadingOverlay = el;
+        return el;
+    }
+
+    positionDropdown() {
+        if (!this.dropdown) return;
+        const dropdownWidth = 280;
+        const padding = 8;
+
+        // Prefer anchoring to the React toolbar button (data-tool="textArt"), fallback to legacy toolbar container.
+        const anchor =
+            document.querySelector('button[data-tool="textArt"]') ||
+            document.querySelector('.__toolbar_item_textArt') ||
+            document.querySelector('.__toolbar_item_textart');
+
+        if (anchor && anchor.getBoundingClientRect) {
+            const rect = anchor.getBoundingClientRect();
+            const left = Math.min(
+                Math.max(padding, rect.left),
+                Math.max(padding, window.innerWidth - dropdownWidth - padding)
+            );
+            const top = Math.min(rect.bottom + padding, window.innerHeight - padding);
+            this.dropdown.style.left = `${left}px`;
+            this.dropdown.style.top = `${top}px`;
+        } else {
+            this.dropdown.style.left = `${padding}px`;
+            this.dropdown.style.top = `${padding}px`;
+        }
+    }
+
     init() {
         this.name = 'textArt';
         this.textArtSelect = 'text';
+        this.ensureLoadingOverlay();
         let attrs = {
             size: 30,
             color: '#4283AE',
@@ -45,15 +97,20 @@ class TextArt extends ToolbarItemBase {
         this.dropdown.setAttribute('id','dropdown_textArt');
         this.dropdown.classList.add('dropdown_box');
         this.dropdown.innerHTML = require('./popup.html')();
-        var toolSignature = document.querySelector(".tool_textArt");
-        toolSignature.appendChild(this.dropdown);
+        this.dropdown.style.position = 'fixed';
+        this.dropdown.style.zIndex = 10000;
+        this.dropdown.style.top = '0px';
+        this.dropdown.style.left = '0px';
+        document.body.appendChild(this.dropdown);
         const elBody = this.dropdown;
         const textArtAll = elBody.querySelectorAll("."+textArt);
         const textArtFontDom = elBody.querySelectorAll("."+textArtFont);
         const pdfMainWrapper = document.querySelector(".pdf-wrapper");
-        pdfMainWrapper.addEventListener('click',()=>{
-            this.dropdown.style.display = 'none';
-        })
+        if (pdfMainWrapper) {
+            pdfMainWrapper.addEventListener('click',()=>{
+                this.dropdown.style.display = 'none';
+            })
+        }
         textArtAll.forEach(el=>{
             el.addEventListener('click',()=>{
                 el.classList.add('active');
@@ -80,7 +137,7 @@ class TextArt extends ToolbarItemBase {
                 let _element = document.createElement('div');
                 _element.innerHTML = this.attrs.text;
                 _element.classList.add('text_art_' +this.attrs.textArtType )
-                _element.style.fontSize = this.attrs.size*readerScale**scale + 'px';
+                _element.style.fontSize = (this.attrs.size * readerScale * scale) + 'px';
                 _element.style.fontFamily = this.attrs.fontFamily;
                 _element.style.color = this.attrs.color;
                 _element.style.textStroke = "2px" + this.attrs.strokeColor;
@@ -97,7 +154,7 @@ class TextArt extends ToolbarItemBase {
                 this.attrs.fontFamily = el.getAttribute('data-fontFamily');
                 this.attrs.fontFile = 'art_font/'+el.getAttribute('data-fontFile');
                 if(fontListBox.indexOf(fontUrl+this.attrs.fontFile) == -1){
-                    loadDom.style.display = 'block';
+                    this.ensureLoadingOverlay().style.display = 'block';
                 }
                 this.initFont(fontUrl+this.attrs.fontFile,this.attrs.fontFamily);
                 var siblingDemo = sibling(el);
@@ -299,9 +356,13 @@ class TextArt extends ToolbarItemBase {
     }
 
     onClick() {
-        setTimeout(()=>{
-            this.dropdown.style.display = 'block';
-        },100)
+        if (!this.dropdown) return;
+        if (this.dropdown.style.display === 'block') {
+            this.dropdown.style.display = 'none';
+            return;
+        }
+        this.positionDropdown();
+        this.dropdown.style.display = 'block';
     }
 
     initFont(fontFile,fontFamily) {
@@ -327,7 +388,8 @@ class TextArt extends ToolbarItemBase {
             if (window.FontFace) {
                 var newfontFile = new FontFace(fontFamily, 'url('+fontFile+')');
                 newfontFile.load().then( ()=> {
-                    loadDom.style.display = 'none';
+                    const overlay = this.ensureLoadingOverlay();
+                    overlay.style.display = 'none';
                     setTimeout(()=>{
                             
                             let scale = window.devicePixelRatio || 1;
@@ -341,7 +403,8 @@ class TextArt extends ToolbarItemBase {
                             this.dropdown.style.display = 'none';
                     },100)
                 },  (err)=>{
-                    loadDom.style.display = 'none';
+                    const overlay = this.ensureLoadingOverlay();
+                    overlay.style.display = 'none';
                     this.attrs.fontFamily= 'Helvetica';
                     this.attrs.fontFile='NotoSansCJKsc-Regular.otf';
                     let _element = document.createElement('div');
@@ -350,7 +413,7 @@ class TextArt extends ToolbarItemBase {
                     _element.innerHTML = this.attrs.text;
                     _element.style.fontSize = this.attrs.size*readerScale*scale + 'px';
                     _element.style.fontFamily = this.attrs.fontFamily;
-                    _element.style.color = this.attrs.color;
+                            _element.style.color = this.attrs.color;
                     this.createFloatElement(_element);
                     this.dropdown.style.display = 'none';
                 });

@@ -69,6 +69,11 @@ export class PDFEditor {
     PDFLib = null;
     history = null;
     fontWorker = new Worker(new URL('./font_worker.js', import.meta.url));
+    _downloadFileName = null;
+    _autoDownload = false;
+    _onWindowMouseDown = null;
+    _onFontWorkerMessage = null;
+    _onActionsResize = null;
 
     constructor(options, pdfData, reader) {
         if (typeof(options) == 'object') {
@@ -136,34 +141,44 @@ export class PDFEditor {
             this.pdfDocument.fixFontData();
         });
 
-        PDFEvent.on(Event.DOWNLOAD, () => {
-            //检查字体是否加载完成
+        PDFEvent.on(Events.DOWNLOAD, () => {
+            // 等待字体加载完成（包含font_worker异步子集化）
             if (!this.pdfDocument.checkFonts()) return;
-            this.pdfDocument.save(true).then(async blob => {
-                // if (this.options.debug) {
-                //     // window.open(URL.createObjectURL(blob));
-                //     location = URL.createObjectURL(blob);
-                // } else {
-                //     saveAs(blob, 'edited.pdf');
-                // }
 
-                parent.postMessage({
-                    type: 'pdf-download',
-                    blob: blob
-                }, '*');
+            this.pdfDocument.save(true).then(async blob => {
+                const fileName = this._downloadFileName || 'edited.pdf';
+
+                // 交给外部UI处理（例如：Done按钮/自定义下载流程）
+                PDFEvent.dispatch(Events.DOWNLOAD_COMPLETE, {
+                    blob,
+                    fileName,
+                });
+
+                // 默认行为：如处于“下载模式”，则直接保存到本地
+                if (this._autoDownload) {
+                    saveAs(blob, fileName);
+                }
+
+                this._autoDownload = false;
+                this._downloadFileName = null;
                 this.reset();
+            }).catch(err => {
+                this._autoDownload = false;
+                this._downloadFileName = null;
+                PDFEvent.dispatch(Events.ERROR, err);
             });
         });
 
-        this.fontWorker.addEventListener('message', e => {
+        this._onFontWorkerMessage = (e) => {
             let data = e.data;
             if (data.type == 'font_subset_after') {
                 this.pdfDocument.setFont(data.pageId, data.fontFile, data.newBuffer);
-                PDFEvent.dispatch(Event.DOWNLOAD);
+                PDFEvent.dispatch(Events.DOWNLOAD);
             }
-        });
+        };
+        this.fontWorker.addEventListener('message', this._onFontWorkerMessage);
 
-        window.addEventListener('mousedown', e => {
+        this._onWindowMouseDown = (e) => {
             if (e.target.getAttribute('role') == 'presentation' 
                 || e.target.getAttribute('contenteditable')
                 || e.target.parentElement.getAttribute('contenteditable')) {
@@ -181,7 +196,8 @@ export class PDFEditor {
                 }
                 page.elements.activeId = null;
             }
-        }, true);
+        };
+        window.addEventListener('mousedown', this._onWindowMouseDown, true);
     }
 
     async init() {
@@ -251,8 +267,15 @@ export class PDFEditor {
     async reset() {
         this.pdfDocument.embedFonts = {};
         this.history.clear();
-        this.elHistoryWrapper.querySelector('.' + HISTORY_BOX_CLASS).innerHTML = '';
-        this.elHistoryBtn.style.display = 'none';
+        if (this.elHistoryWrapper) {
+            const historyBox = this.elHistoryWrapper.querySelector('.' + HISTORY_BOX_CLASS);
+            if (historyBox) {
+                historyBox.innerHTML = '';
+            }
+        }
+        if (this.elHistoryBtn) {
+            this.elHistoryBtn.style.display = 'none';
+        }
         // this.reader.pdfjsLib.getDocument(this.pdfData).promise.then(documentProxy => {
         //     this.reader.pdfDocument.documentProxy = documentProxy;
         // })
@@ -262,6 +285,8 @@ export class PDFEditor {
 
     async download(fileName) {
         try {
+            this._downloadFileName = fileName || 'edited.pdf';
+            this._autoDownload = true;
             this.flushData().then(() => {
                 PDFEvent.dispatch(Events.SAVE);
                 // this.pdfDocument.save(true).then(async blob => {
@@ -277,6 +302,22 @@ export class PDFEditor {
             console.log(e);
             PDFEvent.dispatch(Events.ERROR, e);
         }
+    }
+
+    async save(fileName) {
+        this._downloadFileName = fileName || 'edited.pdf';
+        this._autoDownload = false;
+        return await new Promise((resolve, reject) => {
+            PDFEvent.on(Events.DOWNLOAD_COMPLETE, (e) => {
+                resolve(e.data.blob);
+            }, true);
+            PDFEvent.on(Events.ERROR, (e) => {
+                reject(e.data);
+            }, true);
+            this.flushData().then(() => {
+                PDFEvent.dispatch(Events.SAVE);
+            }).catch(reject);
+        });
     }
 
     #UIEvents() {
@@ -471,7 +512,7 @@ export class PDFEditor {
         this.btnUndo = document.getElementById(btnUndo);
         if (this.btnUndo) {
             this.btnUndo.addEventListener('click', () => {
-                if (!this.btnUndo.classList.contains(DISABLED_CLASS)) {
+                if (this.history && !this.btnUndo.classList.contains(DISABLED_CLASS)) {
                     this.history.undo();
                 }
             });
@@ -480,7 +521,7 @@ export class PDFEditor {
         this.btnRedo = document.getElementById(btnRedo);
         if (this.btnRedo) {
             this.btnRedo.addEventListener('click', () => {
-                if (!this.btnRedo.classList.contains(DISABLED_CLASS)) {
+                if (this.history && !this.btnRedo.classList.contains(DISABLED_CLASS)) {
                     this.history.redo();
                 }
             });
@@ -681,9 +722,13 @@ export class PDFEditor {
         PDFEvent.on(Events.ELEMENT_REMOVE, e => {
             const element = e.data.element;
             const page = e.data.page;
+            if (!this.elHistoryWrapper) return;
+
             let elHistoryBox = this.elHistoryWrapper.querySelector('.' + HISTORY_BOX_CLASS);
             let elHistoryPage = this.elHistoryWrapper.querySelector('.'+ HISTORY_PAGE_CLASS +'[data-pageid="'+ page.id +'"]');
-            elHistoryPage.querySelector('[data-id="'+ element.id +'"]')?.remove();
+            if (elHistoryPage) {
+                elHistoryPage.querySelector('[data-id="'+ element.id +'"]')?.remove();
+            }
             // this.hideElActions();
         });
 
@@ -719,10 +764,11 @@ export class PDFEditor {
         let mainBoxRect = this.reader.mainBox.getBoundingClientRect();
         const scrollWidth = this.reader.parentElement.offsetWidth - this.reader.parentElement.clientWidth;
         this.pdfElActionsWrapper.style.width = (mainBoxRect.width - scrollWidth) + 'px';
-        window.addEventListener('resize', () => {
+        this._onActionsResize = () => {
             mainBoxRect = this.reader.mainBox.getBoundingClientRect();
             this.pdfElActionsWrapper.style.width = (mainBoxRect.width - scrollWidth) + 'px';
-        });
+        };
+        window.addEventListener('resize', this._onActionsResize);
         let bindedLang = {};
 
         const showActions = e => {
@@ -810,4 +856,40 @@ export class PDFEditor {
     //         this.pdfElActionsWrapper.style.position = '';
     //     }
     // }
+
+    destroy() {
+        try {
+            if (this._onWindowMouseDown) {
+                window.removeEventListener('mousedown', this._onWindowMouseDown, true);
+            }
+        } catch (e) {}
+
+        try {
+            if (this._onActionsResize) {
+                window.removeEventListener('resize', this._onActionsResize);
+            }
+        } catch (e) {}
+
+        try {
+            if (this._onFontWorkerMessage) {
+                this.fontWorker?.removeEventListener?.('message', this._onFontWorkerMessage);
+            }
+            this.fontWorker?.terminate?.();
+        } catch (e) {}
+
+        // Remove pdfeditor-owned dialogs (created by tools) to avoid duplicates on re-init.
+        try {
+            document.querySelectorAll('[data-pdfeditor-dialog="1"]').forEach(el => el.remove());
+        } catch (e) {}
+
+        // Remove tool dropdowns that were mounted outside React.
+        try {
+            document.getElementById('dropdown_stamp')?.remove?.();
+            document.getElementById('dropdown_textArt')?.remove?.();
+        } catch (e) {}
+
+        this.reader = null;
+        this.toolbar = null;
+        this.pdfDocument = null;
+    }
 }

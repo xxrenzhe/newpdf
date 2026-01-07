@@ -98,9 +98,11 @@
     display: flex;
     align-items: center;
     height: 60px;
-    /* padding: 8px 0; */
-    border-bottom: var(--border);
-    /* overflow: hidden; */
+    padding: 0 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    gap: 12px;
 }
 .pdf-toolbar .tools-box {
     display: none;
@@ -116,22 +118,25 @@
 
 .pdf-toolbar .line {
     width: 1px;
-    height: 100%;
-    border-right: var(--border);
+    height: 30px;
+    background: linear-gradient(to bottom, transparent, #d9d9d9, transparent);
+    margin: 0 4px;
 }
 .pdf-toolbar .tool-items {
     height: 100%;
-    padding: 0 5px;
+    padding: 0 8px;
     font-size: var(--tool-items-text-size);
     display: flex;
     flex-direction: column;
     justify-content: center;
     position: relative;
+    transition: all 200ms ease;
 }
 
 .pdf-toolbar .tool-items img {
-    width: 15px;
-    height: 15px;
+    width: 18px;
+    height: 18px;
+    transition: transform 200ms ease;
 }
 .pdf-toolbar .tool_textArt{
     margin-right: 10px;
@@ -143,13 +148,16 @@
 }
 
 .pdf-toolbar .tool-item-single {
-    padding: 0 10px;
+    padding: 6px 12px;
     border: 1px solid transparent;
+    border-radius: 6px;
+    transition: all 200ms ease;
 }
 
 .pdf-toolbar .tool-item-single img {
     width: 20px;
     height: 20px;
+    transition: transform 200ms ease;
 }
 .pdf-toolbar .stamp_preset img,.pdf-toolbar .stamp_upload img{
     width: 50px;
@@ -158,21 +166,28 @@
 
 .pdf-toolbar .tool-item {
     display: flex;
-    padding: 0 5px;
+    padding: 6px 10px;
     width: 100%;
     height: 40%;
     align-items: center;
     cursor: pointer;
+    border-radius: 6px;
+    transition: all 200ms ease;
 }
 
 .pdf-toolbar .tool-item.active,
-.pdf-toolbar .tool-item-single.active,
+.pdf-toolbar .tool-item-single.active {
+    background-color: #e8f0ff;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(30, 144, 255, 0.15);
+}
+
 .pdf-toolbar .tool-item:hover,
 .pdf-toolbar .tool-item-single:hover {
-    background-color: var(--hover-bg-color);
-    border-radius: var(--border-radius);
-    transition: background-color var(--hover-ms), 
-                border var(--hover-ms);
+    background-color: #f0f2f5;
+    border-radius: 6px;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 .pdf-toolbar .tool-item-single.active,
 .pdf-toolbar .tool-item-single:hover {
@@ -216,11 +231,20 @@
 .pdf-toolbar .undo svg,
 .pdf-toolbar .redo svg {
     fill: #333333;
+    transition: fill 200ms ease, transform 200ms ease;
+}
+
+.pdf-toolbar .undo:hover svg,
+.pdf-toolbar .redo:hover svg {
+    fill: #1e90ff;
+    transform: scale(1.1);
 }
 
 .pdf-toolbar .undo.disabled svg,
 .pdf-toolbar .redo.disabled svg {
     fill: #bfbfbf;
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .pdf-main-wrapper {
@@ -432,15 +456,29 @@
     height: auto !important;
 } */
 
+.__pdf_el_actions .__act_item .child-item-btn,
+.pdf-el-actions .__act_item .child-item-btn {
+    transition: all 200ms ease;
+    border-radius: 4px;
+    cursor: pointer;
+    position: relative;
+}
+
 .__pdf_el_actions .__act_item .child-item-btn.active,
-.pdf-el-actions .__act_item .child-item-btn.active,
+.pdf-el-actions .__act_item .child-item-btn.active {
+    background-color: #e8f0ff;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(30, 144, 255, 0.15);
+    transition: all 200ms ease;
+}
+
 .__pdf_el_actions .__act_item .child-item-btn:hover,
 .pdf-el-actions .__act_item .child-item-btn:hover {
-    background-color: var(--hover-bg-color);
-    border-radius: var(--border-radius);
-    transition: background-color var(--hover-ms), 
-                border var(--hover-ms);
-    cursor: pointer;
+    background-color: #f0f2f5;
+    border-radius: 4px;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    transition: all 200ms ease;
 }
 
 .__pdf_el_actions .__act_item svg,
@@ -665,6 +703,13 @@
 
 .textLayer .text_strike {
     text-decoration: line-through #ff0000 2px;
+}
+
+/* Find tool highlight (Ctrl+F) */
+.textLayer .__pdf_find_highlight {
+    background-color: rgba(250, 204, 21, 0.55);
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.35);
 }
 
 
@@ -1175,7 +1220,7 @@ input[type=number]::-webkit-outer-spin-button{
     font-family: 'Allura';
     font-style: normal;
     font-weight: 400;
-    src: url(https://fonts.qwerpdf.com/allura/Allura-Regular.ttf) format('woff2');
+    src: url(/assets/fonts/allura/Allura-Regular.ttf) format('truetype');
 }
 
 /* 色卡 */
@@ -1455,19 +1500,38 @@ input[type=number]::-webkit-outer-spin-button{
 }
 .pagenumber_page{
     justify-content: center;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border-top: 1px solid #e5e7eb;
 }
 .pagenumber_p_i{
-    padding: 3px 8px;
+    padding: 6px 12px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #6b7280;
 }
 .pagenumber_p_i input{
-    width: 107px;
-    height: 18px;
-    background: #FEFEFE;
-    border: 1px solid #D7D9DC;
-    font-size: 11px;
+    width: 120px;
+    height: 32px;
+    background: #f9fafb;
+    border: 1px solid #d1d5db;
+    font-size: 13px;
     text-align: center;
-    vertical-align: super;
+    vertical-align: middle;
+    border-radius: 6px;
+    transition: all 200ms ease;
+}
+.pagenumber_p_i input:focus{
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: #ffffff;
 }
 #pagenumber_iptNumber[type=number]::-webkit-inner-spin-button,
 #pagenumber_iptNumber[type=number]::-webkit-outer-spin-button{
@@ -2380,16 +2444,17 @@ img {
 }
 
 .pdf-left-slider {
-    width: 36px;
-    border-right: var(--border);
+    width: 44px;
+    border-right: 1px solid #e5e7eb;
     height: 100%;
-    padding: 7px 0px;
-    background-color: var(--pdf-thumbs-bg-color);
+    padding: 12px 0px;
+    background-color: #f9fafb;
     display: flex;
     flex-direction: column;
     align-items: center;
     flex-shrink: 0;
     z-index: 1;
+    gap: 8px;
 }
 
 .pdf-left-slider .slide-item,
@@ -2436,35 +2501,37 @@ img {
 
 
 .pdf-right-slider {
-    width: 36px;
-    border-left: var(--border);
+    width: 44px;
+    border-left: 1px solid #e5e7eb;
     height: 100%;
-    padding: 7px 0px;
-    background-color: var(--pdf-thumbs-bg-color);
+    padding: 12px 0px;
+    background-color: #f9fafb;
     display: flex;
     flex-direction: column;
     align-items: center;
     flex-shrink: 0;
     z-index: 3;
+    gap: 8px;
 }
 
 .history-wrapper {
     /* height: 100%; */
     height: calc(100% - 130px);
-    background-color: var(--pdf-thumbs-bg-color);
+    background-color: #ffffff;
     overflow: hidden;
     /* width: 0; */
-    border-left: var(--border);
-    width: 260px;
-    transition: transform 300ms;
-    transform: translateX(260px);
+    border-left: 1px solid #e5e7eb;
+    width: 280px;
+    transition: transform 300ms ease-out;
+    transform: translateX(280px);
     display: none;
     flex-direction: column;
-    padding: 10px;
+    padding: 12px;
     overflow-y: auto;
     position: absolute;
-    right: 36px;
+    right: 44px;
     z-index: 2;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
 }
 
 .history-wrapper.show {
@@ -2475,10 +2542,14 @@ img {
 }
 
 .history-wrapper .history-title {
-    padding: 10px 5px 15px 0;
+    padding: 12px 8px 16px 8px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    border-bottom: 1px solid #f3f4f6;
+    font-weight: 600;
+    font-size: 14px;
+    color: #1f2937;
 }
 
 .history-page {
@@ -2574,15 +2645,16 @@ img {
 
 .pdf-thumbs-wrapper {
     height: 100%;
-    background-color: var(--pdf-thumbs-bg-color);
+    background-color: #ffffff;
     overflow: hidden;
     /* width: 0; */
-    border-right: var(--border);
-    width: 190px;
-    transition: transform 300ms;
-    transform: translateX(-190px);
+    border-right: 1px solid #e5e7eb;
+    width: 220px;
+    transition: transform 300ms ease-out;
+    transform: translateX(-220px);
     display: none;
     flex-direction: column;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08);
 }
 
 .pdf-thumbs-wrapper.show {
@@ -2598,15 +2670,20 @@ img {
 }
 
 .pdf-thumbs-wrapper .__pdf_page_preview {
-    width: 120px;
-    margin: 20px 0;
+    width: 100%;
+    margin: 12px 0;
+    padding: 0 8px;
 }
 
 .pdf-thumbs-wrapper .pdf-thumbs-title {
-    padding: 10px 5px 10px 15px;
+    padding: 16px 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    border-bottom: 1px solid #f3f4f6;
+    font-weight: 600;
+    font-size: 14px;
+    color: #1f2937;
 }
 
 .pdf-thumbs-wrapper .pdf-thumbs-title img {
@@ -2631,12 +2708,17 @@ img {
 
 .pdf-thumbs-wrapper .__pdf_page_preview_wrapper {
     width: 100%;
-    height: 150px;
-    box-shadow: var(--pdf-preview-box-shadow);
+    height: 140px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    transition: all 200ms ease;
+    border: 2px solid transparent;
 }
 
 .pdf-thumbs-wrapper .active .__pdf_page_preview_wrapper {
-    outline: var(--pdf-thumbs-preview-wrapper-border);
+    border: 2px solid #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .pdf-thumbs-wrapper .insert_page_box {
@@ -2690,7 +2772,7 @@ img {
 }
 
 .pdf-main-box .insert_page_box {
-    display: flex;
+    display: none;
     justify-content: center;
     margin-top: 20px;
     margin-bottom: 10px;
@@ -2718,9 +2800,61 @@ img {
 }
 
 .pdf-main-box .remove_page {
+    display: none;
     width: 25px;
     position: absolute;
     left: -29px;
+}
+
+/* Page controls only in Delete Pages mode */
+.pdf-main-box.__cursor_delete_pages .remove_page {
+    display: block;
+}
+
+/* Delete Pages mode: lightweight grid + no editing overlays */
+.pdf-main-box.__cursor_delete_pages.view_page_2 {
+    padding: 24px 24px 32px 24px;
+    gap: 16px;
+    justify-content: flex-start;
+    align-content: flex-start;
+}
+
+.pdf-main-box.__cursor_delete_pages .__pdf_page_preview {
+    margin: 0;
+    min-height: auto;
+    align-items: center;
+}
+
+.pdf-main-box.__cursor_delete_pages .remove_page {
+    left: auto;
+    right: 8px;
+    top: 8px;
+    width: 22px;
+    cursor: pointer;
+    opacity: 0.9;
+}
+
+.pdf-main-box.__cursor_delete_pages .remove_page:hover {
+    opacity: 1;
+}
+
+.pdf-main-box.__cursor_delete_pages .insert_page_box {
+    display: none !important;
+}
+
+.pdf-main-box.__cursor_delete_pages .elementLayer,
+.pdf-main-box.__cursor_delete_pages .drawLayer,
+.pdf-main-box.__cursor_delete_pages .textLayer,
+.pdf-main-box.__cursor_delete_pages .annotationLayer {
+    display: none !important;
+}
+
+.pdf-main-box.__cursor_delete_pages .__pdf_page_preview::after {
+    content: "Page " attr(data-page);
+    font-size: 12px;
+    color: #6b7280;
+    padding: 10px 0 0 0;
+    text-align: center;
 }
 
 .btn-download {
@@ -5796,4 +5930,315 @@ dialog :link {
   #scaleSelectContainer {
     display: none;
   }
+}
+
+/* Responsive Toolbar Design */
+@media (max-width: 1024px) {
+  .pdf-toolbar {
+    height: 56px;
+    padding: 0 12px;
+    gap: 6px;
+  }
+
+  .pdf-toolbar .tool-items {
+    padding: 0 6px;
+  }
+
+  .pdf-toolbar .tool-item {
+    padding: 4px 8px;
+  }
+
+  .pdf-toolbar .tool-item-single {
+    padding: 4px 10px;
+  }
+
+  .pdf-toolbar .tool-item img,
+  .pdf-toolbar .tool-items img {
+    width: 16px;
+    height: 16px;
+  }
+
+  .pdf-toolbar .tool-item-single img {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pdf-toolbar {
+    height: 52px;
+    padding: 0 10px;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .pdf-toolbar .tool-items {
+    padding: 0 4px;
+  }
+
+  .pdf-toolbar .tool-item {
+    padding: 3px 6px;
+  }
+
+  .pdf-toolbar .tool-item-single {
+    padding: 3px 8px;
+  }
+
+  .pdf-toolbar .line {
+    height: 24px;
+    margin: 0 2px;
+  }
+
+  .pdf-toolbar .tool-item img,
+  .pdf-toolbar .tool-items img {
+    width: 14px;
+    height: 14px;
+  }
+
+  .pdf-toolbar .tool-item-single img {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Toolbar Animation and Transitions */
+.pdf-toolbar .tool-item,
+.pdf-toolbar .tool-item-single {
+  position: relative;
+  overflow: hidden;
+}
+
+.pdf-toolbar .tool-item::before,
+.pdf-toolbar .tool-item-single::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(30, 144, 255, 0.1);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 600ms, height 600ms;
+}
+
+.pdf-toolbar .tool-item:active::before,
+.pdf-toolbar .tool-item-single:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* Improved Icon Styling */
+.pdf-toolbar .tool-item svg,
+.pdf-toolbar .tool-item-single svg {
+  transition: all 200ms ease;
+}
+
+.pdf-toolbar .tool-item:hover svg,
+.pdf-toolbar .tool-item-single:hover svg {
+  filter: drop-shadow(0 2px 4px rgba(30, 144, 255, 0.3));
+}
+
+.pdf-toolbar .tool-item.active svg,
+.pdf-toolbar .tool-item-single.active svg {
+  filter: drop-shadow(0 2px 6px rgba(30, 144, 255, 0.5));
+}
+
+/* ==============================================
+   PDF Guru Mode - Hide original toolbar and customize layout
+   ============================================== */
+
+/* Hide original toolbar in PDF Guru mode */
+.pdf-guru-mode .pdf-toolbar {
+  display: none !important;
+}
+
+/* Hide original thumbnails wrapper - we use our own sidebar */
+.pdf-guru-mode .pdf-thumbs-wrapper {
+  display: none !important;
+}
+
+/* Hide original left slider */
+.pdf-guru-mode .pdf-left-slider {
+  display: none !important;
+}
+
+/* Adjust pdf-wrapper for guru mode - no left padding needed */
+.pdf-guru-mode .pdf-wrapper {
+  padding-left: 0 !important;
+}
+
+/* Make pdf-main-wrapper fill available space */
+.pdf-guru-mode .pdf-main-wrapper {
+  width: 100% !important;
+  flex: 1;
+}
+
+/* PDF main container styling for guru mode */
+.pdf-guru-mode .pdf-main-box {
+  background-color: #525659 !important;
+}
+
+/* PDF page styling in guru mode */
+.pdf-guru-mode .pdf-page-wrapper {
+  margin: 20px auto !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Thumbnails panel styling for PDF Guru */
+.pdf-guru-thumbnails-panel {
+  padding: 16px;
+  background: #f9fafb;
+}
+
+.pdf-guru-thumbnails-panel .pdf-thumb-item {
+  margin-bottom: 12px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pdf-guru-thumbnails-panel .pdf-thumb-item:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pdf-guru-thumbnails-panel .pdf-thumb-item.active {
+  border-color: #ef4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.pdf-guru-thumbnails-panel .pdf-thumb-page-num {
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+  padding: 4px;
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+/* Keep element actions visible in guru mode */
+.pdf-guru-mode .pdf-el-actions-wrapper {
+  display: block !important;
+}
+
+/* Adjust the element actions toolbar positioning */
+.pdf-guru-mode .pdf-el-actions-wrapper.show {
+  z-index: 100;
+}
+
+/* ==============================================
+   React UnifiedToolbar Styles
+   ============================================== */
+
+.unified-toolbar {
+  z-index: 100;
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.unified-toolbar .toolbar-button {
+  transition: all 150ms ease;
+}
+
+.unified-toolbar .toolbar-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.unified-toolbar .toolbar-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Active tool state */
+.unified-toolbar .toolbar-button[aria-pressed="true"] {
+  box-shadow: inset 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+/* Toolbar divider */
+.unified-toolbar .toolbar-divider {
+  opacity: 0.5;
+}
+
+/* Toolbar group labels */
+.unified-toolbar .toolbar-group > span {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Dropdown menu styling */
+.unified-toolbar [class*="dropdown"] {
+  animation: dropdownFadeIn 150ms ease;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tooltip styling */
+.unified-toolbar [class*="tooltip"] {
+  animation: tooltipFadeIn 150ms ease;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Responsive behavior */
+@media (max-width: 1200px) {
+  .unified-toolbar .toolbar-group > span:first-child {
+    display: none !important;
+  }
+
+  .unified-toolbar .toolbar-button {
+    min-width: 42px;
+    padding: 0.25rem 0.375rem;
+  }
+
+  .unified-toolbar .toolbar-button-label {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 900px) {
+  .unified-toolbar .toolbar-button-label {
+    display: none;
+  }
+
+  .unified-toolbar .toolbar-button {
+    min-width: 36px;
+    padding: 0.375rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .unified-toolbar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .unified-toolbar > div {
+    min-width: max-content;
+  }
+}
+
+/* Hide unified toolbar in guru mode */
+.pdf-guru-mode .unified-toolbar {
+  display: none !important;
 }

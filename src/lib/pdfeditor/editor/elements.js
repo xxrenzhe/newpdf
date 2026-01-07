@@ -40,29 +40,45 @@ export class Elements {
     }
 
     setActive(id) {
-        if (this.activeId == id) {
+        if (this.activeId === id) {
             return;
         }
-        
-        //已经有选中的元素时触发失去焦点事件
-        // if (this.activeId) {
-        //     const oriElement = this.get(this.activeId);
-        //     if (oriElement.el.classList.contains('active')) {
-        //         oriElement.el.classList.remove('active');
-        //         PDFEvent.dispatch(Events.ELEMENT_BLUR, {
-        //             page: this.page,
-        //             element: oriElement
-        //         });
-        //     } else {
-        //         this.activeId == null;
-        //         return;
-        //     }
-        // }
+
+        // Defensive cleanup: if earlier logic left multiple `.active` nodes, clear them.
+        try {
+            const layer = this.page?.readerPage?.elElementLayer;
+            if (layer) {
+                layer.querySelectorAll('.__pdf_editor_element.active').forEach(el => {
+                    if (id !== null && el.getAttribute('id') === String(id)) return;
+                    el.classList.remove('active');
+                });
+            }
+        } catch (e) {}
+
+        // Blur previous active element (ensures only one `.active` at a time).
+        const prevId = this.activeId;
+        if (prevId) {
+            const prevElement = this.get(prevId);
+            if (prevElement?.el?.classList?.contains('active')) {
+                prevElement.el.classList.remove('active');
+            }
+            if (prevElement) {
+                PDFEvent.dispatch(Events.ELEMENT_BLUR, {
+                    page: this.page,
+                    element: prevElement
+                });
+            }
+        }
+
         this.activeId = id;
-        if (id === null) {
+        if (id === null) return;
+
+        const element = this.get(id);
+        if (!element) {
+            this.activeId = null;
             return;
         }
-        const element = this.get(id);
+
         element.el.classList.add('active');
         PDFEvent.dispatch(Events.ELEMENT_ACTIVE, {
             page: this.page,

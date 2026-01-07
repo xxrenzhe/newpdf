@@ -13,6 +13,7 @@ class Rect extends Base {
         }, this.options);
         this.background = this.options.background;
         this.opacity = this.options.opacity;
+        console.log('[DrawRect] constructor - background:', this.background, 'options.background:', options.background);
         this.borderStyle = this.options.borderStyle;
         this.borderWidth = this.options.borderWidth;
         this.borderColor = this.options.borderColor;
@@ -22,6 +23,7 @@ class Rect extends Base {
         // if (!this.options.keep) {
         //     this.container.querySelectorAll('.__draw_rect').forEach(el => el.remove());
         // }
+        console.log('[DrawRect] onDown - this.background:', this.background);
 
         this.box = document.createElement('div');
         this.box.classList.add('__draw_rect');
@@ -29,6 +31,7 @@ class Rect extends Base {
         this.box.style.left = this.firstPos.x + 'px';
         this.box.style.top = this.firstPos.y + 'px';
         this.box.style.background = this.background;
+        console.log('[DrawRect] onDown - box.style.background set to:', this.box.style.background);
         this.box.style.border = this.border;
         this.box.style.borderStyle = this.borderStyle;
         this.box.style.borderWidth = this.borderWidth;

@@ -12,7 +12,7 @@ class RectStroke extends ToolbarItemBase {
             opacity: 1,
             rotate: undefined,
             borderWidth: 2,
-            borderColor: '#ff0000'
+            borderColor: '#ffcd45' // Default to first color (orange)
         };
         if (RectStroke.attrs) {
             attrs = Object.assign(attrs, RectStroke.attrs);
@@ -31,7 +31,8 @@ class RectStroke extends ToolbarItemBase {
 
 
         const elColors = temp.querySelector('.__act_colors');
-        elColors.querySelectorAll('.color-item').forEach(elColor => {
+        const colorItems = elColors.querySelectorAll('.color-item');
+        colorItems.forEach(elColor => {
             elColor.addEventListener('click', e => {
                 let borderColor = elColor.getAttribute('data-color');
                 this.updateAttrs({
@@ -39,6 +40,14 @@ class RectStroke extends ToolbarItemBase {
                 }, objElement);
             });
         });
+
+        // Auto-select first color when tool is activated without an element
+        if (!objElement && colorItems.length > 0) {
+            const firstColor = colorItems[0].getAttribute('data-color');
+            this.updateAttrs({
+                borderColor: firstColor
+            }, objElement);
+        }
 
         const elColorPickr = temp.querySelector('.color-picker');
         const colorPickr = Pickr.create({
@@ -138,11 +147,9 @@ class RectStroke extends ToolbarItemBase {
 
     setAttrs(attrs) {
         super.setAttrs(attrs);
-        for (let i in this.drawHandles) {
-            let handle = this.drawHandles[i];
-            handle.borderColor = this.attrs.borderColor;
-            handle.borderWidth = this.attrs.borderWidth;
-            handle.opacity = this.attrs.opacity;
+        // If borderColor, borderWidth or opacity changed, clear cached drawHandles to force recreation
+        if (attrs.borderColor !== undefined || attrs.borderWidth !== undefined || attrs.opacity !== undefined) {
+            this.drawHandles = {};
         }
     }
 
@@ -193,11 +200,6 @@ class RectStroke extends ToolbarItemBase {
     }
 
     onActive(active) {
-        let pageNum = this.reader.pdfDocument.pageActive;
-        if (!this.drawHandles[pageNum]) {
-            const readerPage = this.reader.pdfDocument.getPage(pageNum);
-            this.drawHandles[pageNum] = this.createDrawHandle(readerPage);
-        }
         if (active) {
             this.enable();
         } else {

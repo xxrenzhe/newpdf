@@ -1,5 +1,5 @@
-import ToolPageTemplate from '@/components/shared/ToolPageTemplate';
 import type { Metadata } from 'next';
+import DeletePdfPagesClient from '@/features/delete-pages/DeletePdfPagesClient';
 
 export const metadata: Metadata = {
   title: 'Delete PDF Pages - NewPDF',
@@ -7,11 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function delete_pdf_pagesPage() {
-  return (
-    <ToolPageTemplate
-      title="Delete PDF Pages"
-      description="Remove unwanted pages from your PDF"
-      comingSoon={true}
-    />
-  );
+  return <DeletePdfPagesClient />;
 }

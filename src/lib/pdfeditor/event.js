@@ -54,7 +54,8 @@ export const Events = {
     SAVE_BEFORE: 'save_before',
     SAVE: 'save',
     SAVE_AFTER: 'save_after',
-    DOWNLOAD: 'download'
+    DOWNLOAD: 'download',
+    DOWNLOAD_COMPLETE: 'download_complete'
 };
 
 const _ONCE = '_#once#_';
@@ -115,5 +116,13 @@ export class PDFEvent {
             this.#events[type] = [];
         }
         this.#events[type].push(func);
+    }
+
+    /**
+     * Hard reset all registered listeners.
+     * Used by the Next.js integration to avoid duplicated handlers when re-initializing the editor.
+     */
+    static reset() {
+        this.#events = Object.create(null);
     }
 };

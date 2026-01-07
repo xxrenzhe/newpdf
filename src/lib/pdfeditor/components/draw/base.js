@@ -39,21 +39,22 @@ class Base {
 
     initEvents() {
         // this.drawing = false;
-        this.container.addEventListener(this.eventTypes.down, e => {
+        // Store event handlers so we can remove them later
+        this.handleDown = e => {
             if (this.disabled || (e.target != this.container && !e.target.classList.contains('__draw_canvas'))) return;
             //不放在getPoe方法中是为了避免每次调用都去计算offset
             this.offset = this.getOffset(this.container);
             this.drawing = true;
             this.firstPos = this.getPos(e);
             this.onDown(e);
-        });
+        };
 
-        this.container.addEventListener(this.eventTypes.move, e => {
+        this.handleMove = e => {
             if (!this.drawing || this.disabled) return;
             this.onMove(e);
-        });
+        };
 
-        this.container.addEventListener(this.eventTypes.up, e => {
+        this.handleUp = e => {
             if (!this.drawing || this.disabled) return;
             this.drawing = false;
             this.flushRect(e);
@@ -62,7 +63,11 @@ class Base {
                 res = [];
             }
             this.options.onFinished(...res);
-        });
+        };
+
+        this.container.addEventListener(this.eventTypes.down, this.handleDown);
+        this.container.addEventListener(this.eventTypes.move, this.handleMove);
+        this.container.addEventListener(this.eventTypes.up, this.handleUp);
     }
 
     enable() {
@@ -72,6 +77,21 @@ class Base {
     disable() {
         this.drawing = false;
         this.disabled = true;
+    }
+
+    destroy() {
+        // Remove event listeners to prevent memory leaks and unwanted behavior
+        if (this.handleDown) {
+            this.container.removeEventListener(this.eventTypes.down, this.handleDown);
+        }
+        if (this.handleMove) {
+            this.container.removeEventListener(this.eventTypes.move, this.handleMove);
+        }
+        if (this.handleUp) {
+            this.container.removeEventListener(this.eventTypes.up, this.handleUp);
+        }
+        this.disabled = true;
+        this.drawing = false;
     }
 
     flushRect(e) {

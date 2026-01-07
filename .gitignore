@@ -49,3 +49,7 @@ next-env.d.ts
 
 # oldcode directory (reference only, not for deployment)
 # /oldcode
+
+# Uploaded PDF files
+uploads/pdfs/*
+!uploads/pdfs/.gitkeep

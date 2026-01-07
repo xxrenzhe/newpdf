@@ -527,7 +527,7 @@ img {
 }
 
 .pdf-main-box .insert_page_box {
-    display: flex;
+    display: none;
     justify-content: center;
     margin-top: 20px;
     margin-bottom: 10px;
@@ -555,9 +555,61 @@ img {
 }
 
 .pdf-main-box .remove_page {
+    display: none;
     width: 25px;
     position: absolute;
     left: -29px;
+}
+
+/* Page controls only in Delete Pages mode */
+.pdf-main-box.__cursor_delete_pages .remove_page {
+    display: block;
+}
+
+/* Delete Pages mode: lightweight grid + no editing overlays */
+.pdf-main-box.__cursor_delete_pages.view_page_2 {
+    padding: 24px 24px 32px 24px;
+    gap: 16px;
+    justify-content: flex-start;
+    align-content: flex-start;
+}
+
+.pdf-main-box.__cursor_delete_pages .__pdf_page_preview {
+    margin: 0;
+    min-height: auto;
+    align-items: center;
+}
+
+.pdf-main-box.__cursor_delete_pages .remove_page {
+    left: auto;
+    right: 8px;
+    top: 8px;
+    width: 22px;
+    cursor: pointer;
+    opacity: 0.9;
+}
+
+.pdf-main-box.__cursor_delete_pages .remove_page:hover {
+    opacity: 1;
+}
+
+.pdf-main-box.__cursor_delete_pages .insert_page_box {
+    display: none !important;
+}
+
+.pdf-main-box.__cursor_delete_pages .elementLayer,
+.pdf-main-box.__cursor_delete_pages .drawLayer,
+.pdf-main-box.__cursor_delete_pages .textLayer,
+.pdf-main-box.__cursor_delete_pages .annotationLayer {
+    display: none !important;
+}
+
+.pdf-main-box.__cursor_delete_pages .__pdf_page_preview::after {
+    content: "Page " attr(data-page);
+    font-size: 12px;
+    color: #6b7280;
+    padding: 10px 0 0 0;
+    text-align: center;
 }
 
 .btn-download {

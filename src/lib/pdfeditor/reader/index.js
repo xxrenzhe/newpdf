@@ -7,15 +7,20 @@ import { Font } from '../font';
 
 
 const obServerThumbs = {
-    rootMargin: '0px',
-    threshold: 0.1
+    // Preload a bit to keep scrolling smooth on large PDFs
+    rootMargin: '200px 0px',
+    threshold: 0.01
 };
 const obServerMain = {
-    rootMargin: '0px',
-    threshold: 0.2
+    // Preload a bit to avoid "blank pages" on fast scroll / large documents
+    rootMargin: '400px 0px',
+    threshold: 0.01
 };
 
 const VIEW_2PAGE_CLASS = 'view_page_2';
+
+const THUMBS_RENDER_CONCURRENCY = 2;
+const MAIN_RENDER_CONCURRENCY = 2;
 
 const btnOpenFile = 'open_pdf';
 const btnPageToFirst = 'pdf_page_to_first';
@@ -61,9 +66,27 @@ export class PDFReader {
     disableViewer = false;
     pdfjsLib = null;
     usePageBase = true;
-    // outputScale = window.devicePixelRatio || 1;
-    outputScale = 2;
+    outputScale = 1;
+    maxCanvasPixels = 12_000_000;
+    maxCanvasDim = 16384;
+    thumbsConcurrency = THUMBS_RENDER_CONCURRENCY;
+    mainConcurrency = MAIN_RENDER_CONCURRENCY;
     locale = null;
+    thumbsObserver = null;
+    mainObserver = null;
+    _onWheel = null;
+    _onResize = null;
+    thumbsRenderQueue = [];
+    thumbsQueuedPages = new Set();
+    thumbsInflightPages = new Set();
+    thumbsInflight = 0;
+    mainRenderQueue = [];
+    mainQueuedPages = new Set();
+    mainInflightPages = new Set();
+    mainInflight = 0;
+    unloadDelayMs = 1500;
+    unloadKeepRange = 2;
+    mainUnloadTimers = new Map();
 
     constructor(options, pdfjsLib, password = null) {
         if (options) {
@@ -76,6 +99,7 @@ export class PDFReader {
         this.password = password;
         this.disableViewer = this.options.disableViewer;
         this.pdfjsLib = pdfjsLib;
+        this.#initPerformanceTuning();
 
         PDFEvent.on(Events.SET_SCALE, (e, sendResponse) => {
             this.scale = e.data;
@@ -142,19 +166,21 @@ export class PDFReader {
 
         try {
             const loadingTask = this.pdfjsLib.getDocument(cfg);
-            if (this.password) {
-                loadingTask.onPassword = (passCallback, reason) => {
-                    let msg = '';
-                    if (this.pdfjsLib.PasswordResponses.NEED_PASSWORD == reason) {
-                        msg = 'This document is password protected. Please enter a password.';
-                    } else if (this.pdfjsLib.PasswordResponses.INCORRECT_PASSWORD == reason) {
-                        msg = 'Invalid password. Please try again.';
-                    }
-                    let password = prompt(msg);
-                    passCallback(password);
+            // Always support password-protected PDFs via a simple prompt fallback.
+            // pdf.js will call this callback only when a password is required/incorrect.
+            loadingTask.onPassword = (passCallback, reason) => {
+                let msg = 'This document is password protected. Please enter a password.';
+                if (this.pdfjsLib.PasswordResponses?.NEED_PASSWORD == reason) {
+                    msg = 'This document is password protected. Please enter a password.';
+                } else if (this.pdfjsLib.PasswordResponses?.INCORRECT_PASSWORD == reason) {
+                    msg = 'Invalid password. Please try again.';
                 }
-            }
+                const password = prompt(msg) ?? '';
+                this.password = password;
+                passCallback(password);
+            };
             this.pdfDocument = new PDFDocument(this, await loadingTask.promise);
+            this.#applyDocumentTuning();
             if (!this.disableViewer) {
                 this.#initReader();
             }
@@ -198,6 +224,25 @@ export class PDFReader {
         this.zoom(this.viewMode, this.options.renderType);
     }
 
+    getOutputScaleForViewport(viewport) {
+        const baseScale = typeof this.outputScale === 'number' && this.outputScale > 0 ? this.outputScale : 1;
+        const width = typeof viewport?.width === 'number' ? viewport.width : 0;
+        const height = typeof viewport?.height === 'number' ? viewport.height : 0;
+        const cssPixels = width * height;
+        if (!Number.isFinite(cssPixels) || cssPixels <= 0) return baseScale;
+
+        const maxPixels = typeof this.maxCanvasPixels === 'number' && this.maxCanvasPixels > 0 ? this.maxCanvasPixels : 8_000_000;
+        const budgetScale = Math.sqrt(maxPixels / cssPixels);
+        let scale = Math.min(baseScale, budgetScale);
+
+        const maxDim = typeof this.maxCanvasDim === 'number' && this.maxCanvasDim > 0 ? this.maxCanvasDim : 16384;
+        const dimScale = Math.min(maxDim / width, maxDim / height);
+        scale = Math.min(scale, dimScale);
+
+        if (!Number.isFinite(scale) || scale < 1) scale = 1;
+        return Math.round(scale * 100) / 100;
+    }
+
     zoom(scale, renderType, force) {
         if (!this.pdfDocument) {
             return;
@@ -207,7 +252,7 @@ export class PDFReader {
 
     #initReader() {
         if (this.options.wheel) {
-            window.addEventListener('wheel', e => {
+            this._onWheel = (e) => {
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
                     const delta = normalizeWheelEventDirection(e);
@@ -220,9 +265,8 @@ export class PDFReader {
                     this.viewMode = this.scale;
                     this.zoom(this.scale, this.options.renderType);
                 }
-            }, {
-                passive: false
-            });
+            };
+            window.addEventListener('wheel', this._onWheel, { passive: false });
         }
         
         if (this.options.thumbs) {
@@ -239,9 +283,10 @@ export class PDFReader {
             this.parentElement = this.mainBox;
         }
 
-        window.addEventListener('resize', e => {
+        this._onResize = () => {
             this.zoom(this.viewMode, this.options.renderType);
-        });
+        };
+        window.addEventListener('resize', this._onResize);
         this.pdfDocument.setPageActive(1);
         Locale.bind();
     }
@@ -249,26 +294,19 @@ export class PDFReader {
     #initThumbs() {
         this.thumbsBox = this.options.thumbs instanceof Node ? this.options.thumbs : document.querySelector(this.options.thumbs);
         let obOptions = {
-            root: null,
+            root: this.thumbsBox,
             rootMargin: obServerThumbs.rootMargin,
             threshold: obServerThumbs.threshold
         };
         const observer = new IntersectionObserver(entries => {
-            entries.forEach(entry => {
-                if (entry.intersectionRatio <= 0) {
-                    return;
-                }
-                if (entry.isIntersecting) {
-                    if (!entry.target.querySelector('.__pdf_item_render')) {
-                        let pageNum = entry.target.getAttribute('data-page');
-                        let page = this.pdfDocument.getPage(pageNum);
-                        page.renderImage().then(el => {
-                            entry.target.firstChild.appendChild(el.cloneNode(true));
-                        });
-                    }
-                }
-            });
+            for (const entry of entries) {
+                if (!entry.isIntersecting) continue;
+                const pageNum = Number(entry.target.getAttribute('data-page') || '0');
+                if (pageNum < 1) continue;
+                this.#enqueueThumbRender(pageNum);
+            }
         }, obOptions);
+        this.thumbsObserver = observer;
 
         for (let i = 1; i <= this.pageCount; i++) {
             let page = this.pdfDocument.getPage(i);
@@ -292,33 +330,33 @@ export class PDFReader {
     #initMain() {
         this.mainBox = this.options.main instanceof Node ? this.options.main : document.querySelector(this.options.main);
         let obOptions = {
-            root: null,
+            root: this.mainBox,
             rootMargin: obServerMain.rootMargin,
             threshold: obServerMain.threshold
         };
 
         const observer = new IntersectionObserver(entries => {
-            entries.forEach(entry => {
-                if (entry.intersectionRatio <= 0) {
-                    return;
+            for (const entry of entries) {
+                const pageNum = Number(entry.target.getAttribute('data-page') || '0');
+                if (pageNum < 1) continue;
+                if (!entry.isIntersecting) {
+                    this.#scheduleMainUnload(pageNum, entry.target);
+                    continue;
+                }
+                this.#cancelMainUnload(pageNum);
+
+                const page = this.pdfDocument.getPage(pageNum);
+                if (page.isNewPage) {
+                    this.pdfDocument.thumbScrollTo(page.pageNum, true);
+                    continue;
+                }
+                if (page.scale != this.scale) {
+                    page.scale = this.scale;
+                    page.rendered = false;
                 }
 
-                if (entry.isIntersecting) {
-                    let pageNum = entry.target.getAttribute('data-page');
-                    const page = this.pdfDocument.getPage(pageNum);
-                    if (page.isNewPage) {
-                        this.pdfDocument.thumbScrollTo(page.pageNum, true);
-                        return;
-                    }
-                    if (page.scale != this.scale) {
-                        page.scale = this.scale;
-                        page.rendered = false;
-                    }
-                    page.render(this.options.renderType).then(() => {
-                        this.pdfDocument.thumbScrollTo(page.pageNum, true);
-                    });
-                }
-            });
+                this.#enqueueMainRender(pageNum);
+            }
         }, obOptions);
 
         for (let i = 1; i <= this.pageCount; i++) {
@@ -327,6 +365,196 @@ export class PDFReader {
             observer.observe(page.elContainer);
         }
         this.mainObserver = observer;
+    }
+
+    #enqueueThumbRender(pageNum) {
+        if (!this.pdfDocument) return;
+        if (this.thumbsQueuedPages.has(pageNum)) return;
+        if (this.thumbsInflightPages.has(pageNum)) return;
+        this.thumbsQueuedPages.add(pageNum);
+        this.thumbsRenderQueue.push(pageNum);
+        this.#processThumbsQueue();
+    }
+
+    #processThumbsQueue() {
+        if (!this.pdfDocument) return;
+
+        while (this.thumbsInflight < this.thumbsConcurrency && this.thumbsRenderQueue.length > 0) {
+            const pageNum = this.thumbsRenderQueue.shift();
+            this.thumbsQueuedPages.delete(pageNum);
+            if (!pageNum) continue;
+            if (this.thumbsInflightPages.has(pageNum)) continue;
+
+            const page = this.pdfDocument.getPage(pageNum);
+            const target = page?.elThumbs;
+            if (!target) continue;
+            if (target.querySelector('.__pdf_item_render')) continue;
+
+            this.thumbsInflight += 1;
+            this.thumbsInflightPages.add(pageNum);
+
+            page.renderThumb({ height: 150, outputScale: 1 })
+                .then(canvas => {
+                    if (!target.querySelector('.__pdf_item_render') && target.firstChild) {
+                        target.firstChild.appendChild(canvas);
+                    }
+                })
+                .catch(() => {})
+                .finally(() => {
+                    this.thumbsInflight -= 1;
+                    this.thumbsInflightPages.delete(pageNum);
+                    this.#processThumbsQueue();
+                });
+        }
+    }
+
+    #enqueueMainRender(pageNum) {
+        if (!this.pdfDocument) return;
+        if (this.mainQueuedPages.has(pageNum)) return;
+        if (this.mainInflightPages.has(pageNum)) return;
+        this.mainQueuedPages.add(pageNum);
+        this.mainRenderQueue.push(pageNum);
+        this.#processMainQueue();
+    }
+
+    #processMainQueue() {
+        if (!this.pdfDocument) return;
+
+        while (this.mainInflight < this.mainConcurrency && this.mainRenderQueue.length > 0) {
+            const pageNum = this.mainRenderQueue.shift();
+            this.mainQueuedPages.delete(pageNum);
+            if (!pageNum) continue;
+            if (this.mainInflightPages.has(pageNum)) continue;
+
+            const page = this.pdfDocument.getPage(pageNum);
+            if (!page || page.isNewPage) continue;
+
+            this.mainInflight += 1;
+            this.mainInflightPages.add(pageNum);
+
+            page.render(this.options.renderType)
+                .then(() => {
+                    this.pdfDocument.thumbScrollTo(page.pageNum, true);
+                })
+                .catch(() => {})
+                .finally(() => {
+                    this.mainInflight -= 1;
+                    this.mainInflightPages.delete(pageNum);
+                    this.#processMainQueue();
+                });
+        }
+    }
+
+    destroy() {
+        try {
+            if (this._onWheel) {
+                window.removeEventListener('wheel', this._onWheel);
+            }
+            if (this._onResize) {
+                window.removeEventListener('resize', this._onResize);
+            }
+        } catch (e) {}
+
+        try {
+            this.mainObserver?.disconnect?.();
+            this.thumbsObserver?.disconnect?.();
+        } catch (e) {}
+
+        try {
+            for (const { id } of this.mainUnloadTimers.values()) {
+                clearTimeout(id);
+            }
+        } catch (e) {}
+
+        try {
+            this.pdfDocument?.documentProxy?.destroy?.();
+        } catch (e) {}
+
+        this.mainObserver = null;
+        this.thumbsObserver = null;
+        this.thumbsRenderQueue = [];
+        this.thumbsQueuedPages = new Set();
+        this.thumbsInflightPages = new Set();
+        this.thumbsInflight = 0;
+        this.mainRenderQueue = [];
+        this.mainQueuedPages = new Set();
+        this.mainInflightPages = new Set();
+        this.mainInflight = 0;
+        this.mainUnloadTimers = new Map();
+        this.pdfDocument = null;
+        this.mainBox = null;
+        this.thumbsBox = null;
+        this.parentElement = null;
+    }
+
+    #scheduleMainUnload(pageNum, elContainer) {
+        if (!this.pdfDocument) return;
+        this.#cancelMainUnload(pageNum);
+        const id = setTimeout(() => {
+            this.mainUnloadTimers.delete(pageNum);
+            if (!this.pdfDocument) return;
+
+            if (this.mainInflightPages.has(pageNum)) {
+                this.#scheduleMainUnload(pageNum, elContainer);
+                return;
+            }
+            const active = this.pdfDocument.pageActive || 1;
+            if (Math.abs(active - pageNum) <= this.unloadKeepRange) return;
+
+            const page = this.pdfDocument.getPage(pageNum);
+            if (page?.elContainer !== elContainer) return;
+            page?.unload?.();
+        }, this.unloadDelayMs);
+        this.mainUnloadTimers.set(pageNum, { id, el: elContainer });
+    }
+
+    #cancelMainUnload(pageNum) {
+        const rec = this.mainUnloadTimers.get(pageNum);
+        if (!rec) return;
+        try {
+            clearTimeout(rec.id);
+        } catch (e) {}
+        this.mainUnloadTimers.delete(pageNum);
+    }
+
+    #initPerformanceTuning() {
+        const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+        const mem = typeof navigator !== 'undefined' ? navigator.deviceMemory : undefined;
+        const maxOutputScale = 2;
+
+        const requestedOutputScale = typeof this.options?.outputScale === 'number' ? this.options.outputScale : null;
+        const baseScale = requestedOutputScale != null ? requestedOutputScale : Math.min(maxOutputScale, Math.max(1, dpr));
+        this.outputScale = baseScale;
+
+        const deviceMemory = typeof mem === 'number' && mem > 0 ? mem : null;
+        const isLowMem = deviceMemory != null && deviceMemory <= 4;
+        this.thumbsConcurrency = isLowMem ? 1 : THUMBS_RENDER_CONCURRENCY;
+        this.mainConcurrency = isLowMem ? 1 : MAIN_RENDER_CONCURRENCY;
+
+        if (deviceMemory != null) {
+            if (deviceMemory <= 2) this.maxCanvasPixels = 4_000_000;
+            else if (deviceMemory <= 4) this.maxCanvasPixels = 6_000_000;
+            else if (deviceMemory <= 8) this.maxCanvasPixels = 8_000_000;
+            else this.maxCanvasPixels = 12_000_000;
+        } else {
+            // Conservative default when device memory info is unavailable.
+            this.maxCanvasPixels = 8_000_000;
+        }
+    }
+
+    #applyDocumentTuning() {
+        if (!this.pdfDocument) return;
+        const pageCount = this.pageCount;
+        if (!pageCount) return;
+
+        if (pageCount >= 200) {
+            this.maxCanvasPixels = Math.min(this.maxCanvasPixels, 4_000_000);
+            this.mainConcurrency = Math.min(this.mainConcurrency, 1);
+        } else if (pageCount >= 100) {
+            this.maxCanvasPixels = Math.min(this.maxCanvasPixels, 6_000_000);
+        } else if (pageCount >= 50) {
+            this.maxCanvasPixels = Math.min(this.maxCanvasPixels, 8_000_000);
+        }
     }
 
     to(pageNum) {

@@ -2,7 +2,8 @@ import opentype from 'opentype.js';
 import { trimSpace } from './misc';
 
 const CHARS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 's', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'S', 'Y', 'Z', ' ', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '~', '!', '@', '#', '$', '%', '^', '&', '(', ')', '_', '+', '-', '=', '{', '}', '|', '[', ']', ';', "'", ':', '"', ',', '.', '/', '<', '>', '?', '*'];
-const UNICODE_FONT = 'unicode.ttf';
+// Local unicode fallback font (bundled under /public/assets/fonts)
+const UNICODE_FONT = 'NotoSansCJKsc-Regular.otf';
 const CJK_RANGE = '[\u4E00-\u9FFF]';
 
 export class Font {
@@ -10,16 +11,16 @@ export class Font {
     static fontUrl = '';
     static fontkit = null;
     static #fallbackFont = null;
+    static #assetCache = Object.create(null);
     static CHARS = CHARS;
     static UNICODE_FONT = UNICODE_FONT;
     static CJK_RANGE = CJK_RANGE;
 
     static async fetchFallbackFont() {
-        if (Font.#fallbackFont) {
-            return Font.#fallbackFont;
-        }
-        let url = ASSETS_URL + 'temp.otf';
-        return fetch(url).then(res => res.arrayBuffer());
+        if (Font.#fallbackFont) return Font.#fallbackFont;
+        const url = ASSETS_URL + 'temp.otf';
+        Font.#fallbackFont = fetch(url).then(res => res.arrayBuffer());
+        return Font.#fallbackFont;
     }
 
     /**
@@ -73,39 +74,52 @@ export class Font {
      */
     static async fetchFont(pageId, text, fontFile) {
         if (!trimSpace(text)) return null;
-        // const fontData = Font.getCache(pageId, fontFile);
-        // if (fontData) {
-        //     return fontData;
-        // }
-        //当文本在CJK范围内时 向服务器取字体改为unicode
-        let isIncludeCJK = new RegExp(CJK_RANGE);
-        if (isIncludeCJK.test(text)) {
-            fontFile = UNICODE_FONT;
+        //当文本在CJK范围内时 使用本地 unicode 兜底字体（纯前端）
+        const isIncludeCJK = new RegExp(CJK_RANGE);
+        const effectiveFontFile = isIncludeCJK.test(text) ? UNICODE_FONT : fontFile;
+
+        // If a remote font generator URL is configured, keep legacy behavior.
+        if (this.fontUrl) {
+            const url = this.fontUrl;
+            const postData = new URLSearchParams({
+                text: this.text2point(text),
+                fontFile: effectiveFontFile
+            });
+            let res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: postData
+            }).catch(() => {
+                return {
+                    status: 500
+                };
+            });
+            if (res.status != 200 || !res.ok) {
+                return false;
+            }
+
+            const buffer = await res.arrayBuffer();
+            Font.setCache(pageId, effectiveFontFile, buffer);
+            return buffer;
         }
 
-        const url = this.fontUrl;
-        const postData = new URLSearchParams({
-            text: this.text2point(text),
-            fontFile: fontFile
-        });
-        let res = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: postData
-        }).catch(e => {
-            return {
-                status: 500
-            }
-        });
-        if (res.status != 200 || !res.ok) {
+        // Pure frontend: load bundled font bytes from /public/assets/fonts/**.
+        if (Font.#assetCache[effectiveFontFile]) {
+            return Font.#assetCache[effectiveFontFile];
+        }
+
+        try {
+            const url = ASSETS_URL + 'fonts/' + effectiveFontFile;
+            const res = await fetch(url);
+            if (!res.ok) return false;
+            const buffer = await res.arrayBuffer();
+            Font.#assetCache[effectiveFontFile] = buffer;
+            return buffer;
+        } catch (e) {
             return false;
         }
-
-        const buffer = await res.arrayBuffer();
-        Font.setCache(pageId, fontFile, buffer);
-        return buffer;
     }
 
     /**

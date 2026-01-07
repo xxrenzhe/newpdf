@@ -27,6 +27,30 @@ const uploadImgStamp = 'upload_img_stamp';
 const stampPreset = "stamp_preset"
 
 class Stamp extends ToolbarItemBase {
+    positionDropdown() {
+        if (!this.dropdown) return;
+        const dropdownWidth = 360;
+        const padding = 8;
+
+        const anchor =
+            document.querySelector('button[data-tool="stamp"]') ||
+            document.querySelector('.__toolbar_item_stamp');
+
+        if (anchor && anchor.getBoundingClientRect) {
+            const rect = anchor.getBoundingClientRect();
+            const left = Math.min(
+                Math.max(padding, rect.left),
+                Math.max(padding, window.innerWidth - dropdownWidth - padding)
+            );
+            const top = Math.min(rect.bottom + padding, window.innerHeight - padding);
+            this.dropdown.style.left = `${left}px`;
+            this.dropdown.style.top = `${top}px`;
+        } else {
+            this.dropdown.style.left = `${padding}px`;
+            this.dropdown.style.top = `${padding}px`;
+        }
+    }
+
     init() {
         this.name = 'stamp'; 
         let attrs = {
@@ -66,19 +90,18 @@ class Stamp extends ToolbarItemBase {
         this.dropdown.classList.add('dropdown_box');
         this.dropdown.setAttribute('id','dropdown_stamp')
         this.dropdown.innerHTML = require('./actions.html')();
-        // Wait for container to be created by ToolbarItemBase
-        setTimeout(() => {
-            var toolStamp = document.querySelector(".__toolbar_item_stamp");
-            if (toolStamp) {
-                toolStamp.appendChild(this.dropdown);
-            } else {
-                console.error('Stamp toolbar container not found');
-            }
-        }, 0);
+        this.dropdown.style.position = 'fixed';
+        this.dropdown.style.zIndex = 10000;
+        this.dropdown.style.top = '0px';
+        this.dropdown.style.left = '0px';
+        this.dropdown.style.display = 'none';
+        document.body.appendChild(this.dropdown);
         const pdfMainWrapper = document.querySelector(".pdf-wrapper");
-        pdfMainWrapper.addEventListener('click',()=>{
-            this.dropdown.style.display = 'none';
-        })
+        if (pdfMainWrapper) {
+            pdfMainWrapper.addEventListener('click',()=>{
+                this.dropdown.style.display = 'none';
+            })
+        }
         
         const elBody = this.dialog.elDialogBody;
         const elDropDowm =  this.dropdown;
@@ -420,6 +443,12 @@ class Stamp extends ToolbarItemBase {
 
 
     onClick() {
+        if (!this.dropdown) return;
+        if (this.dropdown.style.display === 'block') {
+            this.dropdown.style.display = 'none';
+            return;
+        }
+        this.positionDropdown();
         this.dropdown.style.display = 'block';
     }
     

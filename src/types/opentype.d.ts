@@ -5,7 +5,7 @@ declare module 'opentype.js' {
     unicodes?: number[];
   }
 
-  export interface Font {
+  export class Font {
     unitsPerEm: number;
     ascender: number;
     descender: number;
@@ -16,12 +16,7 @@ declare module 'opentype.js' {
     charToGlyph(char: string): Glyph;
     stringToGlyphs(text: string): Glyph[];
     getEnglishName(name: string): string | undefined;
-    toArrayBuffer(): ArrayBuffer;
-  }
 
-  export function parse(buffer: ArrayBuffer): Font;
-
-  export class Font {
     constructor(options: {
       familyName: string;
       styleName: string;
@@ -32,6 +27,8 @@ declare module 'opentype.js' {
     });
     toArrayBuffer(): ArrayBuffer;
   }
+
+  export function parse(buffer: ArrayBuffer): Font;
 
   const opentype: {
     parse: typeof parse;
